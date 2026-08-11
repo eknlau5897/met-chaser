@@ -27,7 +27,6 @@
      
     <style type="text/tailwindcss"> 
         @layer utilities { 
-            /* Main card style with black background */
             .weather-card { @apply bg-black rounded-lg shadow-md border border-gray-800 overflow-hidden text-white; } 
         } 
         
@@ -164,15 +163,15 @@
             font-weight: 600;
         }
 
-        /* Header Option Button Styling */
-        .iframe-option-btn {
-            @apply px-3 py-1.5 text-xs md:text-sm font-medium rounded transition-colors duration-200 border border-gray-700;
+        /* Standalone Option Buttons Above Iframe */
+        .top-option-btn {
+            @apply flex-1 py-2.5 px-4 text-sm font-bold rounded-lg border text-center transition-all duration-200 shadow-sm flex items-center justify-center gap-2;
         }
-        .iframe-option-btn.active {
-            @apply bg-primary text-white border-primary;
+        .top-option-btn.active {
+            @apply bg-primary text-white border-primary shadow-md;
         }
-        .iframe-option-btn:not(.active) {
-            @apply bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white;
+        .top-option-btn:not(.active) {
+            @apply bg-black text-gray-300 border-gray-800 hover:bg-gray-900 hover:text-white;
         }
     </style> 
 </head> 
@@ -193,7 +192,7 @@
 
     <main class="container mx-auto px-4 py-6 flex-grow">
         
-        <!-- Compact Typhoon Animated Hero Banner -->
+        <!-- Compact Typhoon Animated Banner -->
         <div id="animated-hero">
             <div class="typhoon-vortex"></div>
             <div class="typhoon-core"></div>
@@ -210,53 +209,46 @@
             </div>
         </div>
 
-        <!-- 3-Column Content Layout (2 Left | Main Center | 2 Right) -->
+        <!-- 3-Column Layout Grid (2 Left | Main Center | 2 Right) -->
         <div class="content-grid">
             
             <!-- Left Side Column: 2 Black Cards -->
             <aside class="sidebar-col">
                 <div class="sidebar-card">
-                    <img src="https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?auto=format&fit=crop&w=600&q=80" alt="實況雷達">
-                    <span class="card-title"><i class="fa-solid fa-satellite-dish mr-1"></i>實況雷達圖像</span>
+                    <img id="card-img-l1" src="https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?auto=format&fit=crop&w=600&q=80" alt="左一圖卡">
+                    <span id="card-title-l1" class="card-title"><i class="fa-solid fa-satellite-dish mr-1"></i>實況雷達圖像</span>
                 </div>
                 <div class="sidebar-card">
-                    <img src="https://images.unsplash.com/photo-1592210454359-9043f067919b?auto=format&fit=crop&w=600&q=80" alt="紫外線指數">
-                    <span class="card-title"><i class="fa-solid fa-sun mr-1"></i>紫外線與輻射監測</span>
+                    <img id="card-img-l2" src="https://images.unsplash.com/photo-1592210454359-9043f067919b?auto=format&fit=crop&w=600&q=80" alt="左二圖卡">
+                    <span id="card-title-l2" class="card-title"><i class="fa-solid fa-sun mr-1"></i>紫外線與輻射監測</span>
                 </div>
             </aside>
 
-            <!-- Center Column: Black Weather Embed Panel with 3 Options on Top -->
-            <section class="main-col flex flex-col gap-6">
-                <div class="weather-card">
-                    <!-- Top 3 Option Toolbar directly above the iframe -->
-                    <div class="p-3 bg-gray-900 border-b border-gray-800 flex flex-wrap items-center justify-between gap-2">
-                        <div class="flex items-center gap-2">
-                            <i class="fa-solid fa-layer-group text-sky-400 text-sm"></i>
-                            <span class="text-sm font-bold text-white">圖層選擇：</span>
-                        </div>
-                        
-                        <!-- 3 Options on top of iframe -->
-                        <div class="flex items-center gap-2">
-                            <button onclick="switchIframe('https://zax41006-bot.github.io/GHMWS-GIS/', this)" class="iframe-option-btn active">
-                                <i class="fa-solid fa-radar mr-1"></i>雷達地圖
-                            </button>
-                            <button onclick="switchIframe('https://lc2nz3kv-5500.asse.devtunnels.ms/demo/?skip_tunnel_warning=true/', this)" class="iframe-option-btn">
-                                <i class="fa-solid fa-wind mr-1"></i>風場預報
-                            </button>
-                            <button onclick="switchIframe('https://eknlau5897.github.io/GHMWS-nowcast/index.html', this)" class="iframe-option-btn">
-                                <i class="fa-solid fa-cloud-showers-heavy mr-1"></i>即時降雨
-                            </button>
-                        </div>
-                    </div>
+            <!-- Center Column: 3 Standalone Option Buttons ABOVE Iframe -->
+            <section class="main-col flex flex-col gap-4">
+                
+                <!-- 3 Options Located Above the Iframe -->
+                <div class="flex items-center gap-3 w-full">
+                    <button onclick="switchTab('radar', this)" class="top-option-btn active">
+                        <i class="fa-solid fa-radar text-sky-400"></i> 雷達地圖
+                    </button>
+                    <button onclick="switchTab('wind', this)" class="top-option-btn">
+                        <i class="fa-solid fa-wind text-sky-400"></i> 風場預報
+                    </button>
+                    <button onclick="switchTab('rain', this)" class="top-option-btn">
+                        <i class="fa-solid fa-cloud-showers-heavy text-sky-400"></i> 即時降雨
+                    </button>
+                </div>
 
-                    <!-- Main Embed Canvas -->
+                <!-- Main Iframe Display Container -->
+                <div class="weather-card">
                     <iframe 
                         id="main-weather-iframe"
                         src="https://zax41006-bot.github.io/GHMWS-GIS/" 
                         width="100%"  
                         height="580"  
                         frameborder="0"  
-                        class="w-full h-[580px]" 
+                        class="w-full h-[580px] block" 
                         title="天氣資訊圖層"
                         allowfullscreen="true"> 
                     </iframe> 
@@ -266,12 +258,12 @@
             <!-- Right Side Column: 2 Black Cards -->
             <aside class="sidebar-col">
                 <div class="sidebar-card">
-                    <img src="https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=600&q=80" alt="風向預報">
-                    <span class="card-title"><i class="fa-solid fa-wind mr-1"></i>風向與氣壓分析</span>
+                    <img id="card-img-r1" src="https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=600&q=80" alt="右一圖卡">
+                    <span id="card-title-r1" class="card-title"><i class="fa-solid fa-wind mr-1"></i>風向與氣壓分析</span>
                 </div>
                 <div class="sidebar-card">
-                    <img src="https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?auto=format&fit=crop&w=600&q=80" alt="雲量分佈">
-                    <span class="card-title"><i class="fa-solid fa-cloud mr-1"></i>衛星雲圖監測</span>
+                    <img id="card-img-r2" src="https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?auto=format&fit=crop&w=600&q=80" alt="右二圖卡">
+                    <span id="card-title-r2" class="card-title"><i class="fa-solid fa-cloud mr-1"></i>衛星雲圖監測</span>
                 </div>
             </aside>
 
@@ -283,11 +275,54 @@
         <p class="text-sm opacity-80 mt-1">© 2026 香港氣象追擊網 版權所有</p>
     </footer>
 
-    <!-- Simple Script to handle switching top 3 options -->
+    <!-- Interactive Option Switching Script -->
     <script>
-        function switchIframe(url, btnElement) {
-            document.getElementById('main-weather-iframe').src = url;
-            const buttons = document.querySelectorAll('.iframe-option-btn');
+        const tabData = {
+            radar: {
+                iframe: 'https://zax41006-bot.github.io/GHMWS-GIS/',
+                l1: { img: 'https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?auto=format&fit=crop&w=600&q=80', title: '<i class="fa-solid fa-satellite-dish mr-1"></i>實況雷達圖像' },
+                l2: { img: 'https://images.unsplash.com/photo-1592210454359-9043f067919b?auto=format&fit=crop&w=600&q=80', title: '<i class="fa-solid fa-sun mr-1"></i>紫外線與輻射監測' },
+                r1: { img: 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=600&q=80', title: '<i class="fa-solid fa-wind mr-1"></i>風向與氣壓分析' },
+                r2: { img: 'https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?auto=format&fit=crop&w=600&q=80', title: '<i class="fa-solid fa-cloud mr-1"></i>衛星雲圖監測' }
+            },
+            wind: {
+                iframe: 'https://lc2nz3kv-5500.asse.devtunnels.ms/demo/?skip_tunnel_warning=true/',
+                l1: { img: 'https://images.unsplash.com/photo-1505672678453-9da1fcddbc76?auto=format&fit=crop&w=600&q=80', title: '<i class="fa-solid fa-compass mr-1"></i>全球風場氣流圖' },
+                l2: { img: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&q=80', title: '<i class="fa-solid fa-mountain mr-1"></i>高空風力變化' },
+                r1: { img: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80', title: '<i class="fa-solid fa-water mr-1"></i>近海風浪與湧浪' },
+                r2: { img: 'https://images.unsplash.com/photo-1527482797697-8795b05a13fe?auto=format&fit=crop&w=600&q=80', title: '<i class="fa-solid fa-gauge-high mr-1"></i>地面陣風預報' }
+            },
+            rain: {
+                iframe: 'https://eknlau5897.github.io/GHMWS-nowcast/index.html',
+                l1: { img: 'https://images.unsplash.com/photo-1519692933481-e162a57d6721?auto=format&fit=crop&w=600&q=80', title: '<i class="fa-solid fa-cloud-showers-heavy mr-1"></i>臨近暴雨預警' },
+                l2: { img: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?auto=format&fit=crop&w=600&q=80', title: '<i class="fa-solid fa-cloud-bolt mr-1"></i>強對流與閃電' },
+                r1: { img: 'https://images.unsplash.com/photo-1428592953211-077101b2021b?auto=format&fit=crop&w=600&q=80', title: '<i class="fa-solid fa-droplet mr-1"></i>分區累積雨量' },
+                r2: { img: 'https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=600&q=80', title: '<i class="fa-solid fa-umbrella mr-1"></i>未雨綢繆提示' }
+            }
+        };
+
+        function switchTab(key, btnElement) {
+            const data = tabData[key];
+            if (!data) return;
+
+            // Update central iframe
+            document.getElementById('main-weather-iframe').src = data.iframe;
+
+            // Update 4 side photos and titles
+            document.getElementById('card-img-l1').src = data.l1.img;
+            document.getElementById('card-title-l1').innerHTML = data.l1.title;
+
+            document.getElementById('card-img-l2').src = data.l2.img;
+            document.getElementById('card-title-l2').innerHTML = data.l2.title;
+
+            document.getElementById('card-img-r1').src = data.r1.img;
+            document.getElementById('card-title-r1').innerHTML = data.r1.title;
+
+            document.getElementById('card-img-r2').src = data.r2.img;
+            document.getElementById('card-title-r2').innerHTML = data.r2.title;
+
+            // Update tab button UI state
+            const buttons = document.querySelectorAll('.top-option-btn');
             buttons.forEach(btn => btn.classList.remove('active'));
             btnElement.classList.add('active');
         }
