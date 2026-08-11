@@ -4,6 +4,7 @@
     <meta charset="UTF-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> 
     <title>香港氣象追擊網</title> 
+    <link rel="icon" href="" type="image/png">
     
     <script src="https://cdn.tailwindcss.com"></script> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> 
@@ -14,7 +15,7 @@
             theme: { 
                 extend: { 
                     colors: { 
-                        primary: '#000000', 
+                        primary: '#0056b3', 
                         secondary: '#e9f5ff', 
                         nav: '#007bff',
                         textDark: '#212529'
@@ -28,7 +29,6 @@
         @layer utilities { 
             /* Main card style with black background */
             .weather-card { @apply bg-black rounded-lg shadow-md border border-gray-800 overflow-hidden text-white; } 
-            .nav-link { @apply px-4 py-3 text-white hover:bg-primary/80 transition-colors duration-300; }
         } 
         
         body { 
@@ -164,14 +164,21 @@
             font-weight: 600;
         }
 
-        @media (max-width: 768px) {
-            .nav-container ul { flex-direction: column; }
-            .nav-link { display: block; }
+        /* Header Option Button Styling */
+        .iframe-option-btn {
+            @apply px-3 py-1.5 text-xs md:text-sm font-medium rounded transition-colors duration-200 border border-gray-700;
+        }
+        .iframe-option-btn.active {
+            @apply bg-primary text-white border-primary;
+        }
+        .iframe-option-btn:not(.active) {
+            @apply bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white;
         }
     </style> 
 </head> 
 
 <body class="font-sans text-textDark min-h-screen flex flex-col"> 
+    <!-- Brand Header -->
     <header class="bg-white border-b border-gray-200 py-2 shadow-sm">
         <div class="container mx-auto px-6 flex items-center justify-between">
             <div class="flex items-center gap-4 md:gap-6">
@@ -184,24 +191,9 @@
         </div>
     </header>
 
-    <nav class="bg-nav nav-container">
-        <div class="container mx-auto px-4">
-            <ul class="flex flex-wrap">
-                <li><a href="#" class="nav-link inline-block font-medium">首頁</a></li>
-                <li><a href="https://eknlau5897.github.io/GHMWS-realtime/index.html" class="nav-link inline-block font-medium">實況天氣</a></li>
-                <li><a href="https://eknlau5897.github.io/GHMWS-global-model/index.html" class="nav-link inline-block font-medium">全球模式預報</a></li>
-                <li><a href="https://eknlau5897.github.io/GHMWS-meso-model/index.html" class="nav-link inline-block font-medium">中尺度模式預報</a></li>
-                <li><a href="#" class="nav-link inline-block font-medium">集合模式預報</a></li>
-                <li><a href="https://lc2nz3kv-5500.asse.devtunnels.ms/demo/?skip_tunnel_warning=true/" class="nav-link inline-block font-medium">地球風場動畫3D</a></li>
-                <li><a href="https://eknlau5897.github.io/GHMWS-nowcast/index.html" class="nav-link inline-block font-medium">臨近降雨預報</a></li>
-                <li><a href="#" class="nav-link inline-block font-medium">歷史個案分析</a></li>
-            </ul>
-        </div>
-    </nav>
-
     <main class="container mx-auto px-4 py-6 flex-grow">
         
-        <!-- Compact Typhoon Banner -->
+        <!-- Compact Typhoon Animated Hero Banner -->
         <div id="animated-hero">
             <div class="typhoon-vortex"></div>
             <div class="typhoon-core"></div>
@@ -218,7 +210,7 @@
             </div>
         </div>
 
-        <!-- 3-Column Content Layout with Black Columns -->
+        <!-- 3-Column Content Layout (2 Left | Main Center | 2 Right) -->
         <div class="content-grid">
             
             <!-- Left Side Column: 2 Black Cards -->
@@ -233,20 +225,39 @@
                 </div>
             </aside>
 
-            <!-- Center Column: Black Weather Embed Panel -->
+            <!-- Center Column: Black Weather Embed Panel with 3 Options on Top -->
             <section class="main-col flex flex-col gap-6">
                 <div class="weather-card">
-                    <div class="p-4 bg-gray-900 border-b border-gray-800 text-white font-bold flex justify-between items-center">
-                        <span><i class="fa-solid fa-radar mr-2 text-sky-400"></i>地球氣象3D</span>
-                        <span class="text-xs bg-gray-800 border border-gray-700 text-gray-200 px-2 py-1 rounded">即時更新</span>
+                    <!-- Top 3 Option Toolbar directly above the iframe -->
+                    <div class="p-3 bg-gray-900 border-b border-gray-800 flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-layer-group text-sky-400 text-sm"></i>
+                            <span class="text-sm font-bold text-white">圖層選擇：</span>
+                        </div>
+                        
+                        <!-- 3 Options on top of iframe -->
+                        <div class="flex items-center gap-2">
+                            <button onclick="switchIframe('https://zax41006-bot.github.io/GHMWS-GIS/', this)" class="iframe-option-btn active">
+                                <i class="fa-solid fa-radar mr-1"></i>雷達地圖
+                            </button>
+                            <button onclick="switchIframe('https://lc2nz3kv-5500.asse.devtunnels.ms/demo/?skip_tunnel_warning=true/', this)" class="iframe-option-btn">
+                                <i class="fa-solid fa-wind mr-1"></i>風場預報
+                            </button>
+                            <button onclick="switchIframe('https://eknlau5897.github.io/GHMWS-nowcast/index.html', this)" class="iframe-option-btn">
+                                <i class="fa-solid fa-cloud-showers-heavy mr-1"></i>即時降雨
+                            </button>
+                        </div>
                     </div>
+
+                    <!-- Main Embed Canvas -->
                     <iframe 
-                        src="https://lc2nz3kv-5500.asse.devtunnels.ms/demo/?skip_tunnel_warning=true/" 
+                        id="main-weather-iframe"
+                        src="https://zax41006-bot.github.io/GHMWS-GIS/" 
                         width="100%"  
                         height="580"  
                         frameborder="0"  
                         class="w-full h-[580px]" 
-                        title="地球氣象3D"
+                        title="天氣資訊圖層"
                         allowfullscreen="true"> 
                     </iframe> 
                 </div>
@@ -271,5 +282,15 @@
         <p class="text-lg font-bold">香港氣象追擊網</p>
         <p class="text-sm opacity-80 mt-1">© 2026 香港氣象追擊網 版權所有</p>
     </footer>
+
+    <!-- Simple Script to handle switching top 3 options -->
+    <script>
+        function switchIframe(url, btnElement) {
+            document.getElementById('main-weather-iframe').src = url;
+            const buttons = document.querySelectorAll('.iframe-option-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            btnElement.classList.add('active');
+        }
+    </script>
 </body>
 </html>
