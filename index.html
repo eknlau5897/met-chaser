@@ -3,7 +3,7 @@
 <head> 
     <meta charset="UTF-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> 
-    <title>met chaser</title> 
+    <title>香港氣象追擊網</title> 
     <link rel="icon" href="" type="image/png">
     
     <script src="https://cdn.tailwindcss.com"></script> 
@@ -27,7 +27,8 @@
      
     <style type="text/tailwindcss"> 
         @layer utilities { 
-            .weather-card { @apply bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden; } 
+            /* Main card style with black background */
+            .weather-card { @apply bg-black rounded-lg shadow-md border border-gray-800 overflow-hidden text-white; } 
             .nav-link { @apply px-4 py-3 text-white hover:bg-primary/80 transition-colors duration-300; }
         } 
         
@@ -36,11 +37,10 @@
             font-family: "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif; 
         } 
 
-        /* --- COMPACT TYPHOON BANNER (LOGO LEVEL) --- */
-
+        /* Compact Typhoon Banner */
         #animated-hero {
             position: relative;
-            height: 160px; /* Compact banner height */
+            height: 160px;
             background: radial-gradient(circle, #1a365d 0%, #0f172a 100%);
             overflow: hidden;
             border-radius: 12px;
@@ -51,7 +51,6 @@
             box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
         }
 
-        /* Scaled Down Vortex */
         .typhoon-vortex {
             position: absolute;
             top: 50%;
@@ -70,7 +69,6 @@
             pointer-events: none;
         }
 
-        /* Scaled Down Core */
         .typhoon-core {
             position: absolute;
             top: 50%;
@@ -85,7 +83,6 @@
             pointer-events: none;
         }
 
-        /* Compact Lightning Flash */
         .lightning-flash {
             position: absolute;
             top: 30%;
@@ -133,24 +130,28 @@
             gap: 1.25rem;
         }
 
+        /* Side Cards with Black Background */
         .sidebar-card {
             position: relative;
             height: 280px;
             border-radius: 0.5rem;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            background: #fff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            background: #000000;
+            border: 1px solid #1f2937;
         }
 
         .sidebar-card img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: transform 0.3s ease;
+            opacity: 0.85;
+            transition: transform 0.3s ease, opacity 0.3s ease;
         }
 
         .sidebar-card:hover img {
             transform: scale(1.05);
+            opacity: 1;
         }
 
         .card-title {
@@ -159,8 +160,8 @@
             left: 0;
             right: 0;
             padding: 0.75rem;
-            background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
-            color: #fff;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            color: #ffffff;
             font-weight: 600;
         }
 
@@ -178,7 +179,7 @@
                 <img src="HKMO_MET.png" alt="香港氣象追擊網" class="w-16 h-16 object-contain">
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold text-primary">香港氣象追擊網</h1>
-                    <p class="text-xs md:text-sm text-gray-500">met-chaser</p>
+                    <p class="text-xs md:text-sm text-gray-500">HK_MET_CHASER</p>
                 </div>
             </div>
         </div>
@@ -187,7 +188,8 @@
     <nav class="bg-nav nav-container">
         <div class="container mx-auto px-4">
             <ul class="flex flex-wrap">
-                <li><a href="#" class="nav-link inline-block font-medium">首頁</a></li>
+                <li><a href="https://zax41006-bot.github.io/HKMO_MET/index.html" class="nav-link inline-block font-medium">首頁</a></li>
+                <li><a href="https://zax41006-bot.github.io/GHMWS-TC-GIS/" class="nav-link inline-block font-medium">熱帶氣旋資訊</a></li>
                 <li><a href="https://eknlau5897.github.io/GHMWS-realtime/index.html" class="nav-link inline-block font-medium">實況天氣</a></li>
                 <li><a href="https://eknlau5897.github.io/GHMWS-global-model/index.html" class="nav-link inline-block font-medium">全球模式預報</a></li>
                 <li><a href="https://eknlau5897.github.io/GHMWS-meso-model/index.html" class="nav-link inline-block font-medium">中尺度模式預報</a></li>
@@ -201,7 +203,7 @@
 
     <main class="container mx-auto px-4 py-6 flex-grow">
         
-        <!-- Compact Typhoon Animated Hero Banner -->
+        <!-- Compact Typhoon Banner -->
         <div id="animated-hero">
             <div class="typhoon-vortex"></div>
             <div class="typhoon-core"></div>
@@ -218,10 +220,10 @@
             </div>
         </div>
 
-        <!-- 3-Column Content Layout (2 Left | Main Center | 2 Right) -->
+        <!-- 3-Column Content Layout with Black Columns -->
         <div class="content-grid">
             
-            <!-- Left Side Column: 2 Cards -->
+            <!-- Left Side Column: 2 Black Cards -->
             <aside class="sidebar-col">
                 <div class="sidebar-card">
                     <img src="https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?auto=format&fit=crop&w=600&q=80" alt="實況雷達">
@@ -233,12 +235,12 @@
                 </div>
             </aside>
 
-            <!-- Center Column: Main Embed -->
+            <!-- Center Column: Black Weather Embed Panel -->
             <section class="main-col flex flex-col gap-6">
                 <div class="weather-card">
-                    <div class="p-4 bg-primary text-white font-bold flex justify-between items-center">
-                        <span><i class="fa-solid fa-radar mr-2"></i>降雨雷達圖</span>
-                        <span class="text-xs bg-white/20 px-2 py-1 rounded">即時更新</span>
+                    <div class="p-4 bg-gray-900 border-b border-gray-800 text-white font-bold flex justify-between items-center">
+                        <span><i class="fa-solid fa-radar mr-2 text-sky-400"></i>降雨雷達圖</span>
+                        <span class="text-xs bg-gray-800 border border-gray-700 text-gray-200 px-2 py-1 rounded">即時更新</span>
                     </div>
                     <iframe 
                         src="https://zax41006-bot.github.io/GHMWS-GIS/" 
@@ -252,7 +254,7 @@
                 </div>
             </section>
 
-            <!-- Right Side Column: 2 Cards -->
+            <!-- Right Side Column: 2 Black Cards -->
             <aside class="sidebar-col">
                 <div class="sidebar-card">
                     <img src="https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=600&q=80" alt="風向預報">
