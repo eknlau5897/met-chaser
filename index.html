@@ -1,310 +1,294 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hong Kong & Macau Live Weather Map</title>
+<!DOCTYPE html> 
+<html lang="zh-Hant"> 
+<head> 
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> 
+    <title>香港氣象追擊網</title> 
     
-    <!-- Leaflet CSS & JS -->
-    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
-    
-    <style>
-        html, body {
+    <script src="https://cdn.tailwindcss.com"></script> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+     
+    <script> 
+        tailwind.config = { 
+            theme: { 
+                extend: { 
+                    colors: { 
+                        primary: '#0056b3', 
+                        secondary: '#e9f5ff', 
+                        nav: '#007bff',
+                        textDark: '#212529'
+                    }, 
+                } 
+            } 
+        } 
+    </script> 
+     
+    <style type="text/tailwindcss"> 
+        @layer utilities { 
+            /* Main card style with black background */
+            .weather-card { @apply bg-black rounded-lg shadow-md border border-gray-800 overflow-hidden text-white; } 
+            .nav-link { @apply px-4 py-3 text-white hover:bg-primary/80 transition-colors duration-300; }
+        } 
+        
+        body { 
+            background-color: #f8f9fa; 
+            font-family: "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif; 
+        } 
+
+        /* Compact Typhoon Banner */
+        #animated-hero {
+            position: relative;
+            height: 160px;
+            background: radial-gradient(circle, #1a365d 0%, #0f172a 100%);
+            overflow: hidden;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .typhoon-vortex {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 320px;
+            height: 320px;
+            background: repeating-conic-gradient(
+                from 0deg,
+                rgba(255, 255, 255, 0.03) 0deg 20deg,
+                rgba(255, 255, 255, 0.12) 20deg 40deg
+            );
+            border-radius: 50%;
+            filter: blur(6px);
+            animation: swirlTyphoon 6s linear infinite;
+            pointer-events: none;
+        }
+
+        .typhoon-core {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70px;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 50%;
+            box-shadow: 0 0 25px rgba(255, 255, 255, 0.5);
+            animation: corePulse 3s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+
+        .lightning-flash {
+            position: absolute;
+            top: 30%;
+            left: 45%;
+            width: 8px;
+            height: 30px;
+            background: rgba(186, 230, 253, 0.9);
+            filter: blur(4px);
+            opacity: 0;
+            animation: lightningFlash 6s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes swirlTyphoon {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        @keyframes corePulse {
+            0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.6; }
+            100% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.9; }
+        }
+
+        @keyframes lightningFlash {
+            0%, 4%, 96%, 100% { opacity: 0; }
+            2%, 6% { opacity: 1; }
+        }
+
+        /* 3-Column Layout Grid Setup */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 240px 1fr 240px;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .sidebar-col {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        /* Side Cards with Black Background */
+        .sidebar-card {
+            position: relative;
+            height: 280px;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            background: #000000;
+            border: 1px solid #1f2937;
+        }
+
+        .sidebar-card img {
             width: 100%;
             height: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
+            object-fit: cover;
+            opacity: 0.85;
+            transition: transform 0.3s ease, opacity 0.3s ease;
         }
-        #map {
+
+        .sidebar-card:hover img {
+            transform: scale(1.05);
+            opacity: 1;
+        }
+
+        .card-title {
             position: absolute;
-            top: 0;
             bottom: 0;
-            right: 0;
             left: 0;
-        }
-        #update-status {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: bold;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-            border-left: 4px solid #1565c0;
-        }
-
-        /* Weather Station Custom Marker Styling */
-        .weather-station-container {
-            position: relative;
-            width: 60px;
-            height: 60px;
-            font-weight: bold;
-            font-size: 11px;
-        }
-        .stn-temp {
-            position: absolute;
-            top: 2px;
-            left: 0px;
-            color: #d32f2f;
-            background: rgba(255,255,255,0.9);
-            padding: 1px 4px;
-            border-radius: 3px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-        .stn-center-dot {
-            position: absolute;
-            top: 26px;
-            left: 26px;
-            width: 8px;
-            height: 8px;
-            background-color: #1565c0;
-            border: 1px solid #fff;
-            border-radius: 50%;
-        }
-        .stn-wind-barb {
-            position: absolute;
-            top: 30px;
-            left: 29px;
-            width: 2px;
-            height: 24px;
-            background-color: #1a237e;
-            transform-origin: top center;
-            border-radius: 1px;
-            transition: transform 0.6s ease-in-out;
-        }
-        .stn-wind-flag {
-            width: 8px;
-            height: 2px;
-            background-color: #1a237e;
-            position: absolute;
-            bottom: 0;
             right: 0;
+            padding: 0.75rem;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            color: #ffffff;
+            font-weight: 600;
         }
-        .stn-name {
-            position: absolute;
-            top: 24px;
-            left: 36px;
-            font-size: 9px;
-            color: #222;
-            white-space: nowrap;
-            background: rgba(255,255,255,0.85);
-            padding: 1px 3px;
-            border-radius: 2px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+
+        @media (max-width: 768px) {
+            .nav-container ul { flex-direction: column; }
+            .nav-link { display: block; }
         }
-    </style>
-</head>
-<body>
+    </style> 
+</head> 
 
-    <div id="update-status">Initializing station network...</div>
-    <div id="map"></div>
-
-<script>
-    // 1. Initialize Map view covering both HK & Macau
-    var map = L.map("map", {
-        center: [22.30, 113.95],
-        zoom: 10,
-        crs: L.CRS.EPSG3857
-    });
-
-    // 2. Basemap Layer
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-        minZoom: 8,
-        maxZoom: 18,
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO &copy; HKO &copy; SMG Macau'
-    }).addTo(map);
-
-    var stationLayerGroup = L.layerGroup().addTo(map);
-
-    // 3. Complete Station Coordinates Registry
-    const STATION_COORDINATES = {
-        // --- HONG KONG OBSERVATORY STATIONS ---
-        "Hong Kong Observatory": [22.3019, 114.1742],
-        "King's Park": [22.3119, 114.1728],
-        "Wong Chuk Hang": [22.2478, 114.1736],
-        "Ta Kwu Ling": [22.5286, 114.1567],
-        "Lau Fau Shan": [22.4689, 113.9836],
-        "Tai Po": [22.4461, 114.1789],
-        "Sha Tin": [22.4025, 114.2100],
-        "Tuen Mun": [22.3858, 113.9642],
-        "Tseung Kwan O": [22.3158, 114.2556],
-        "Sai Kung": [22.3836, 114.2708],
-        "Chek Lap Kok": [22.3094, 113.9219],
-        "Tsing Yi": [22.3442, 114.1100],
-        "Shek Kong": [22.4361, 114.0847],
-        "Hong Kong Park": [22.2783, 114.1622],
-        "Shau Kei Wan": [22.2817, 114.2247],
-        "Kowloon City": [22.3308, 114.1883],
-        "Happy Valley": [22.2706, 114.1836],
-        "Wong Tai Sin": [22.3394, 114.1953],
-        "Stanley": [22.2142, 114.2186],
-        "Kwun Tong": [22.3119, 114.2247],
-        "Shenzhen": [22.5500, 114.1000],
-        "Lamma Island": [22.2275, 114.1078],
-        "Cheung Chau": [22.2011, 114.0267],
-        "Peng Chau": [22.2861, 114.0378],
-        "Tai Mo Shan": [22.4108, 114.1242],
-        "Tate's Cairn": [22.3581, 114.2183],
-        "Ngong Ping": [22.2561, 113.9039],
-        "Tap Mun": [22.4708, 114.3603],
-        "Pak Tam Au": [22.4347, 114.3331],
-        "Green Island": [22.2842, 114.1117],
-        "Kai Tak Runway": [22.3083, 114.1972],
-        "Clear Water Bay": [22.2908, 114.2883],
-        "Sham Shui Po": [22.3300, 114.1590],
-        "Tsuen Wan Ho Koon": [22.3836, 114.1078],
-        "Tsuen Wan Shing Mun Valley": [22.3758, 114.1236],
-
-        // --- MACAU SMG STATIONS ---
-        "Fortaleza do Monte (Macau)": [22.1965, 113.5422],
-        "Porto Exterior (Outer Harbour)": [22.1978, 113.5562],
-        "Barra (Macau South)": [22.1856, 113.5312],
-        "Taipa Grande (SMG HQ)": [22.1581, 113.5683],
-        "Macau Airport": [22.1492, 113.5925],
-        "Cotai / UMAC": [22.1306, 113.5492],
-        "Coloane Village": [22.1167, 113.5512],
-        "Ka-Ho (Coloane East)": [22.1311, 113.5850]
-    };
-
-    // Helper: Wind direction string to degrees
-    function windDirToDegrees(dirStr) {
-        if (!dirStr) return 0;
-        const num = parseFloat(dirStr);
-        if (!isNaN(num)) return num;
-
-        const clean = dirStr.trim().toUpperCase();
-        const mapDir = {
-            "N": 0, "NNE": 22.5, "NE": 45, "ENE": 67.5,
-            "E": 90, "ESE": 112.5, "SE": 135, "SSE": 157.5,
-            "S": 180, "SSW": 202.5, "SW": 225, "WSW": 247.5,
-            "W": 270, "WNW": 292.5, "NW": 315, "NNW": 337.5
-        };
-
-        for (let key in mapDir) {
-            if (clean === key || clean.includes(key)) return mapDir[key];
-        }
-        return 0;
-    }
-
-    // Custom Station Marker Icon Generator
-    function createStationIcon(name, tempVal, windDeg, hasWindData) {
-        var displayTemp = (tempVal !== null && tempVal !== undefined) ? Math.round(tempVal) + '°' : '--';
-        
-        // Hide wind barb if no live wind data exists for this station
-        var barbStyle = hasWindData 
-            ? `transform: rotate(${windDeg}deg); opacity: 1;` 
-            : `display: none;`;
-
-        return L.divIcon({
-            "html": `
-            <div class="weather-station-container">
-                <div class="stn-temp">${displayTemp}</div>
-                <div class="stn-center-dot"></div>
-                <div class="stn-wind-barb" style="${barbStyle}">
-                    <div class="stn-wind-flag"></div>
+<body class="font-sans text-textDark min-h-screen flex flex-col"> 
+    <header class="bg-white border-b border-gray-200 py-2 shadow-sm">
+        <div class="container mx-auto px-6 flex items-center justify-between">
+            <div class="flex items-center gap-4 md:gap-6">
+                <img src="HKMO_MET.png" alt="香港氣象追擊網" class="w-16 h-16 object-contain">
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold text-primary">香港氣象追擊網</h1>
+                    <p class="text-xs md:text-sm text-gray-500">Hong Kong met chasing</p>
                 </div>
-                <div class="stn-name">${name}</div>
-            </div>`,
-            "iconSize": [60, 60],
-            "iconAnchor": [30, 30],
-            "className": "custom-weather-icon"
-        });
-    }
+            </div>
+        </div>
+    </header>
 
-    // Main Update Loop
-    async function updateAllRegionalWeather() {
-        document.getElementById("update-status").innerText = "Fetching live feeds...";
+    <nav class="bg-nav nav-container">
+        <div class="container mx-auto px-4">
+            <ul class="flex flex-wrap">
+                <li><a href="https://eknlau5897.github.io/met-chaser/index.html" class="nav-link inline-block font-medium">首頁</a></li>
+                <li><a href="#" class="nav-link inline-block font-medium">熱帶氣旋資訊</a></li>
+                <li><a href="https://eknlau5897.github.io/GHMWS-realtime/index.html" class="nav-link inline-block font-medium">實況天氣</a></li>
+                <li><a href="https://eknlau5897.github.io/GHMWS-global-model/index.html" class="nav-link inline-block font-medium">全球模式預報</a></li>
+                <li><a href="https://eknlau5897.github.io/GHMWS-meso-model/index.html" class="nav-link inline-block font-medium">中尺度模式預報</a></li>
+                <li><a href="#" class="nav-link inline-block font-medium">集合模式預報</a></li>
+                <li><a href="https://lc2nz3kv-5500.asse.devtunnels.ms/demo/?skip_tunnel_warning=true/" class="nav-link inline-block font-medium">地球風場動畫3D</a></li>
+                <li><a href="https://eknlau5897.github.io/GHMWS-nowcast/index.html" class="nav-link inline-block font-medium">臨近降雨預報</a></li>
+                <li><a href="#" class="nav-link inline-block font-medium">歷史個案分析</a></li>
+            </ul>
+        </div>
+    </nav>
 
-        try {
-            const hkoUrl = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=en";
-            const res = await fetch(hkoUrl);
-            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+    <main class="container mx-auto px-4 py-6 flex-grow">
+        
+        <!-- Compact Typhoon Banner -->
+        <div id="animated-hero">
+            <div class="typhoon-vortex"></div>
+            <div class="typhoon-core"></div>
+            <div class="lightning-flash"></div>
+            <div class="lightning-flash" style="top: 50%; left: 55%; animation-delay: 2.5s;"></div>
+
+            <div class="relative z-10 text-center px-4">
+                <h2 class="text-xl md:text-2xl font-bold text-white tracking-wide flex items-center justify-center gap-2 drop-shadow-md">
+                    <i class="fa-solid fa-hurricane text-sky-400"></i> <a href="https://eknlau5897.github.io/my_windy/index.html">全球實況天氣網</a>
+                </h2>
+                <p class="text-xs md:text-sm text-gray-200 mt-1 max-w-2xl mx-auto drop-shadow">
+                    站務公告：由於網站正進行全自動化改善工程，部分模式或未能及時更新，敬請見諒。
+                </p>
+            </div>
             
-            const data = await res.json();
+        </div>
 
-            // 1. Extract Temperature
-            const hkoTemps = {};
-            if (data.temperature && Array.isArray(data.temperature.data)) {
-                data.temperature.data.forEach(item => {
-                    hkoTemps[item.place] = item.value;
-                });
-            }
+        <!-- 3-Column Content Layout with Black Columns -->
+        <div class="content-grid">
+            
+            <!-- Left Side Column: 2 Black Cards -->
+            <aside class="sidebar-col">
+                <div class="sidebar-card">
+                    <img src="https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?auto=format&fit=crop&w=600&q=80" alt="實況雷達">
+                    <span class="card-title"><i class="fa-solid fa-satellite-dish mr-1"></i>實況雷達圖像</span>
+                </div>
+                <div class="sidebar-card">
+                    <img src="https://images.unsplash.com/photo-1592210454359-9043f067919b?auto=format&fit=crop&w=600&q=80" alt="紫外線指數">
+                    <span class="card-title"><i class="fa-solid fa-sun mr-1"></i>紫外線與輻射監測</span>
+                </div>
+            </aside>
 
-            // 2. Extract Wind
-            const hkoWinds = {};
-            if (data.windSpeed && Array.isArray(data.windSpeed.data)) {
-                data.windSpeed.data.forEach(item => {
-                    hkoWinds[item.place] = {
-                        dirDeg: windDirToDegrees(item.direction),
-                        dirName: item.direction,
-                        speed: item.value
-                    };
-                });
-            }
-
-            stationLayerGroup.clearLayers();
-            var count = 0;
-
-            // 3. Render Stations
-            for (const [stnName, coords] of Object.entries(STATION_COORDINATES)) {
-                let temp = hkoTemps[stnName] !== undefined ? hkoTemps[stnName] : null;
-                let windDeg = 0;
-                let windSpeed = null;
-                let windDirText = null;
-                let hasWindData = false;
-
-                if (hkoWinds[stnName]) {
-                    windDeg = hkoWinds[stnName].dirDeg;
-                    windSpeed = hkoWinds[stnName].speed;
-                    windDirText = hkoWinds[stnName].dirName;
-                    hasWindData = true;
-                } else if (stnName.includes("Macau") || stnName.includes("Taipa") || stnName.includes("Coloane") || stnName.includes("Porto") || stnName.includes("Barra") || stnName.includes("Cotai")) {
-                    temp = temp || 29;
-                    windDeg = 225;
-                    windSpeed = 12;
-                    windDirText = "SW";
-                    hasWindData = true;
-                }
-
-                // Clean display strings for missing data
-                let windText = hasWindData ? `${windDirText} at ${windSpeed} km/h` : "Data not available in feed";
-                let rotationText = hasWindData ? `${windDeg}°` : "N/A";
-
-                var marker = L.marker(coords, {
-                    icon: createStationIcon(stnName, temp, windDeg, hasWindData)
-                });
-
-                marker.bindPopup(`
-                    <div style="font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5;">
-                        <strong style="color: #1565c0;">${stnName}</strong><br/>
-                        <strong>Temperature:</strong> ${temp !== null ? temp + ' °C' : 'Data not available'}<br/>
-                        <strong>Wind:</strong> ${windText}<br/>
-                        <strong>Vector Rotation:</strong> ${rotationText}
+            <!-- Center Column: Black Weather Embed Panel -->
+            <section class="main-col flex flex-col gap-6">
+                <div class="weather-card">
+                    <div class="p-4 bg-gray-900 border-b border-gray-800 text-white font-bold flex justify-between items-center">
+                        <span><i class="fa-solid fa-radar mr-2 text-sky-400"></i>風險分佈及提示</span>
+                        <span class="text-xs bg-gray-800 border border-gray-700 text-gray-200 px-2 py-1 rounded">即時更新</span>
                     </div>
-                `);
+                    <iframe 
+                        src="https://eknlau5897.github.io/my_windy/warning.html" 
+                        width="100%"  
+                        height="100%"  
+                        frameborder="0"  
+                        class="w-full h-[580px]" 
+                        title="雷達圖"
+                        allowfullscreen="true"> 
+                    </iframe> 
+                </div>
+            </section>
+            <section class="main-col flex flex-col gap-6">
+                <div class="weather-card">
+                    <div class="p-4 bg-gray-900 border-b border-gray-800 text-white font-bold flex justify-between items-center">
+                        <span><i class="fa-solid fa-radar mr-2 text-sky-400"></i>地球氣象3D</span>
+                        <span class="text-xs bg-gray-800 border border-gray-700 text-gray-200 px-2 py-1 rounded">即時更新</span>
+                    </div>
+                    <iframe 
+                        src="https://lc2nz3kv-5500.asse.devtunnels.ms/demo/?skip_tunnel_warning=true/" 
+                        width="100%"  
+                        height="580"  
+                        frameborder="0"  
+                        class="w-full h-[580px]" 
+                        title="雷達圖"
+                        allowfullscreen="true"> 
+                    </iframe> 
+                </div>
+            </section>
 
-                stationLayerGroup.addLayer(marker);
-                count++;
-            }
+            <!-- Right Side Column: 2 Black Cards -->
+            <aside class="sidebar-col">
+                <div class="sidebar-card">
+                    <img src="https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=600&q=80" alt="風向預報">
+                    <span class="card-title"><i class="fa-solid fa-wind mr-1"></i>風向與氣壓分析</span>
+                </div>
+                <div class="sidebar-card">
+                    <img src="https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?auto=format&fit=crop&w=600&q=80" alt="雲量分佈">
+                    <span class="card-title"><i class="fa-solid fa-cloud mr-1"></i>衛星雲圖監測</span>
+                </div>
+            </aside>
 
-            const now = new Date();
-            document.getElementById("update-status").innerText = `Live | ${count} Stations Active | ${now.toLocaleTimeString()}`;
+        </div>
+    </main>
 
-        } catch (err) {
-            console.error("Fetch Error:", err);
-            document.getElementById("update-status").innerText = "Error loading live weather feeds";
-        }
-    }
-
-    // Initial Trigger & 5-minute Refresh
-    updateAllRegionalWeather();
-    setInterval(updateAllRegionalWeather, 300000);
-</script>
+    <footer class="bg-primary text-white py-6 mt-10 text-center">
+        <p class="text-lg font-bold">香港氣象追擊網</p>
+        <p class="text-sm opacity-80 mt-1">© 2026 香港氣象追擊網 版權所有</p>
+    </footer>
 </body>
 </html>
