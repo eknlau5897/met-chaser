@@ -3,7 +3,7 @@
 <head> 
     <meta charset="UTF-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> 
-    <title>港澳氣象追擊網</title> 
+    <title>港澳天氣站</title> 
     
     <script src="https://cdn.tailwindcss.com"></script> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> 
@@ -175,10 +175,10 @@
     <header class="bg-white border-b border-gray-200 py-2 shadow-sm">
         <div class="container mx-auto px-6 flex items-center justify-between">
             <div class="flex items-center gap-4 md:gap-6">
-                <img src="HKMO_MET.png" alt="港澳氣象追擊網" class="w-16 h-16 object-contain">
+                <img src="HKMO_MET.png" alt="港澳天氣站" class="w-16 h-16 object-contain">
                 <div>
-                    <h1 class="text-xl md:text-2xl font-bold text-primary">港澳氣象追擊網</h1>
-                    <p class="text-xs md:text-sm text-gray-500">HK_MET_CHASER</p>
+                    <h1 class="text-xl md:text-2xl font-bold text-primary">港澳天氣站</h1>
+                    <p class="text-xs md:text-sm text-gray-500">HKMO_MET</p>
                 </div>
             </div>
         </div>
@@ -217,6 +217,7 @@
                     站務公告：由於網站正進行全自動化改善工程，部分模式或未能及時更新，敬請見諒。
                 </p>
             </div>
+            
         </div>
 
         <!-- 3-Column Content Layout with Black Columns -->
@@ -235,6 +236,23 @@
             </aside>
 
             <!-- Center Column: Black Weather Embed Panel -->
+            <section class="main-col flex flex-col gap-6">
+                <div class="weather-card">
+                    <div class="p-4 bg-gray-900 border-b border-gray-800 text-white font-bold flex justify-between items-center">
+                        <span><i class="fa-solid fa-radar mr-2 text-sky-400"></i>風險分佈及提示</span>
+                        <span class="text-xs bg-gray-800 border border-gray-700 text-gray-200 px-2 py-1 rounded">即時更新</span>
+                    </div>
+                    <iframe 
+                        src="https://eknlau5897.github.io/my_windy/warning.html" 
+                        width="100%"  
+                        height="100%"  
+                        frameborder="0"  
+                        class="w-full h-[580px]" 
+                        title="雷達圖"
+                        allowfullscreen="true"> 
+                    </iframe> 
+                </div>
+            </section>
             <section class="main-col flex flex-col gap-6">
                 <div class="weather-card">
                     <div class="p-4 bg-gray-900 border-b border-gray-800 text-white font-bold flex justify-between items-center">
