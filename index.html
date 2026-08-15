@@ -221,7 +221,7 @@
             <aside class="flex flex-col gap-5">
                 <div class="sidebar-card group">
                     <img src="https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?auto=format&fit=crop&w=600&q=80" alt="實況雷達">
-                    <span class="card-title"><a href="https://eknlau5897.github.io/my_windy/radar.html">實況雷達圖像</span>
+                    <span class="card-title"><a href="https://eknlau5897.github.io/my_windy/radar.html" class="hover:text-sky-300">實況雷達圖像</a></span>
                 </div>
                 <div class="sidebar-card group">
                     <img src="https://images.unsplash.com/photo-1592210454359-9043f067919b?auto=format&fit=crop&w=600&q=80" alt="紫外線指數">
@@ -233,31 +233,44 @@
             <section class="flex flex-col gap-6">
                 <!-- Panel 1: Warnings & Risk -->
                 <div class="weather-card">
-                    <div class="px-4 py-3 bg-slate-800/80 border-b border-slate-700/60 flex justify-between items-center">
-                        <span class="font-bold text-sm md:text-base text-white"><a href="https://lc2nz3kv-3000.asse.devtunnels.ms/warning.html"">風險分佈及警報</a></span>
-                        <h2>強雷雨區注意報，大雨注意報</h2>
-                        <span class="text-xs bg-sky-500/10 border border-sky-500/30 text-sky-300 px-2.5 py-0.5 rounded-full">即時更新</span>
+                    <div class="px-4 py-3 bg-slate-800/80 border-b border-slate-700/60 flex justify-between items-center flex-wrap gap-2">
+                        <div class="flex items-center gap-3">
+                            <span class="font-bold text-sm md:text-base text-white">
+                                <a href="https://lc2nz3kv-3000.asse.devtunnels.ms/warning.html" class="hover:text-sky-400">風險分佈及警報</a>
+                            </span>
+                            <h2 class="text-sm font-medium text-amber-400">強雷雨區注意報，大雨注意報</h2>
+                        </div>
+                        <span class="text-xs bg-sky-500/10 border border-sky-500/30 text-sky-300 px-2.5 py-0.5 rounded-full shrink-0">即時更新</span>
                     </div>
-                    
-                
                 </div>
 
+                <!-- Panel 2: Weather Tips -->
                 <div class="weather-card">
-                    <div class="px-4 py-3 bg-slate-800/80 border-b border-slate-700/60 flex justify-between items-center">
-                        <span class="font-bold text-sm md:text-base text-white"><a href="https://lc2nz3kv-3000.asse.devtunnels.ms/warning.html"">天氣提示</a></span>
-                        <h2>15:40HKT 14/8/2026
-                        預料下週中期一道低壓槽會為華南沿岸帶來不穩定天氣，低壓槽上可能有低壓系統發展，現階段評估該區會有驟雨及狂風雷暴，是否有熱帶氣旋發展取決於多種因素，包括1.會否有多中心情況使整合速度慢2.大氣環境是否適合發展3.系統位置會否太近岸。部分模式對生成有反應，但仍有相當大的變數。</h2>
-                        <span class="text-xs bg-sky-500/10 border border-sky-500/30 text-sky-300 px-2.5 py-0.5 rounded-full">即時更新</span>
+                    <div class="px-4 py-3 bg-slate-800/80 border-b border-slate-700/60 flex justify-between items-center gap-2">
+                        <span class="font-bold text-sm md:text-base text-white">
+                            <a href="https://lc2nz3kv-3000.asse.devtunnels.ms/warning.html" class="hover:text-sky-400">天氣提示</a>
+                        </span>
+                        <span class="text-xs bg-sky-500/10 border border-sky-500/30 text-sky-300 px-2.5 py-0.5 rounded-full shrink-0">即時更新</span>
                     </div>
-                    
-                
+                    <div class="p-4 text-xs md:text-sm text-slate-300 leading-relaxed">
+                        <div class="font-semibold text-sky-400 mb-2">15:40 HKT 14/8/2026</div>
+                        <p>
+                            預料下週中期一道低壓槽會為華南沿岸帶來不穩定天氣，低壓槽上可能有低壓系統發展，現階段評估該區會有驟雨及狂風雷暴，是否有熱帶氣旋發展取決於多種因素，包括：
+                        </p>
+                        <ul class="list-disc list-inside mt-2 space-y-1 text-slate-400">
+                            <li>1. 會否有多中心情況使整合速度慢</li>
+                            <li>2. 大氣環境是否適合發展</li>
+                            <li>3. 系統位置會否太近岸</li>
+                        </ul>
+                        <p class="mt-2 text-slate-400">部分模式對生成有反應，但仍有相當大的變數。</p>
+                    </div>
                 </div>
 
-                <!-- Panel 2: Earth 3D -->
+                <!-- Panel 3: Earth 3D -->
                 <div class="weather-card">
                     <div class="px-4 py-3 bg-slate-800/80 border-b border-slate-700/60 flex justify-between items-center">
                         <span class="font-bold text-sm md:text-base text-white">地球氣象 3D</span>
-                        <span class="text-xs bg-sky-500/10 border border-sky-500/30 text-sky-300 px-2.5 py-0.5 rounded-full">即時更新</span>
+                        <span class="text-xs bg-sky-500/10 border border-sky-500/30 text-sky-300 px-2.5 py-0.5 rounded-full shrink-0">即時更新</span>
                     </div>
                     <div class="w-full h-[580px] bg-slate-950">
                         <iframe 
