@@ -134,7 +134,7 @@
 
         const TEMP_RAW_URL = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_temperature.csv";
         const RH_RAW_URL   = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_humidity.csv";
-        const WIND_RAW_URL = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_wind.csv";
+        const WIND_RAW_URL = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_10min_wind.csv";
 
         // Accurate outdoor WBGT estimation combining Stull wet-bulb formula & wind speed cooling
         function calculateWindAdjustedWBGT(temp, rh, windSpeedKmH = 5.0, solarRad = 400) {
