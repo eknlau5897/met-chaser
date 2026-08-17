@@ -59,7 +59,7 @@
             <div class="hidden md:flex items-center gap-4 text-xs text-slate-400"> 
                 <span class="flex items-center gap-1.5"> 
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 
-                    Pure JS + Wind-Adjusted WBGT Engine
+                    Pure JS + Dynamic Wind WBGT Engine
                 </span> 
             </div> 
         </div> 
@@ -69,7 +69,7 @@
     <main class="container mx-auto px-4 py-6 flex-grow"> 
         <div class="text-center mb-6"> 
             <h2 class="text-2xl md:text-3xl font-bold text-white mb-1">戶外濕球黑球溫度 (WBGT) 實況監測</h2> 
-            <p class="text-sky-400 text-sm font-medium mt-1">即時讀取天文台氣溫、濕度及風速 CSV 計算動態 WBGT</p> 
+            <p class="text-sky-400 text-sm font-medium mt-1">融合天文台氣溫、濕度及 10 分鐘平均風速 (10min Wind Speed CSV)</p> 
         </div> 
 
         <div class="model-card p-4 relative"> 
@@ -125,7 +125,6 @@
             "Yuen Long Park": [22.4419, 114.0183]
         };
 
-        // Primary and Fallback Proxy Handlers (UNCHANGED)
         const PROXIES = [
             url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
             url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
@@ -136,20 +135,15 @@
         const RH_RAW_URL   = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_humidity.csv";
         const WIND_RAW_URL = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_10min_wind.csv";
 
-        // Accurate outdoor WBGT estimation combining Stull wet-bulb formula & wind speed cooling
         function calculateWindAdjustedWBGT(temp, rh, windSpeedKmH = 5.0, solarRad = 400) {
-            // Convert wind speed from km/h to m/s
             const windSpeedMs = Math.max(0.5, windSpeedKmH / 3.6);
 
-            // Wet-bulb temperature estimation (Stull formula)
             const tw = temp * Math.atan(0.151977 * Math.pow(rh + 8.313659, 0.5)) +
                        Math.atan(temp + rh) - Math.atan(rh - 1.676331) +
                        0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) - 4.686035;
 
-            // Black Globe Temperature approximation (Tg) with wind speed cooling
             const tg = temp + 0.0149 * solarRad - 0.21 * windSpeedMs;
 
-            // Outdoor WBGT Formula: 0.7*Tw + 0.2*Tg + 0.1*Ta
             const wbgt = (0.7 * tw) + (0.2 * tg) + (0.1 * temp);
             return wbgt.toFixed(1);
         }
@@ -187,7 +181,34 @@
                     console.warn("Proxy attempt failed, trying next...", e);
                 }
             }
-            throw new Error("Unable to fetch CSV through available proxies.");
+            throw new Error("Unable to fetch standard CSV through available proxies.");
+        }
+
+        // Special CSV parser for HKO 10-Min Wind CSV (Date/Time, Station, Direction, Speed, Gust)
+        async function fetchWindCSVWithFallback(rawUrl) {
+            for (const proxyFn of PROXIES) {
+                try {
+                    const res = await fetch(proxyFn(rawUrl));
+                    if (!res.ok) continue;
+                    const text = await res.text();
+                    
+                    const lines = text.trim().split("\n").slice(1);
+                    const data = {};
+                    lines.forEach(line => {
+                        const cols = line.split(",");
+                        if (cols.length >= 4) {
+                            const station = cols[1].trim();
+                            const windSpeed = parseFloat(cols[3].trim()); // Column 4 is Wind Speed (km/h)
+                            if (!isNaN(windSpeed)) data[station] = windSpeed;
+                        }
+                    });
+                    
+                    if (Object.keys(data).length > 0) return data;
+                } catch (e) {
+                    console.warn("Wind CSV fetch failed, trying next...", e);
+                }
+            }
+            return {};
         }
 
         function addLegend(map) {
@@ -223,7 +244,7 @@
                 const [tempData, rhData, windData] = await Promise.all([
                     fetchCSVWithFallback(TEMP_RAW_URL),
                     fetchCSVWithFallback(RH_RAW_URL),
-                    fetchCSVWithFallback(WIND_RAW_URL).catch(() => ({}))
+                    fetchWindCSVWithFallback(WIND_RAW_URL)
                 ]);
 
                 const map = L.map('map-container').setView([22.3527, 114.1272], 11);
@@ -236,22 +257,27 @@
                 addLegend(map);
 
                 let count = 0;
+                let fetchedWindCount = 0;
+
                 Object.keys(tempData).forEach(station => {
                     if (STATIONS[station]) {
                         const temp = tempData[station];
                         const rh = rhData[station] !== undefined ? rhData[station] : 75.0;
-                        const wind = windData[station] !== undefined ? windData[station] : 5.0;
-                        const [lat, lon] = STATIONS[station];
+                        const hasRealWind = windData[station] !== undefined;
+                        const wind = hasRealWind ? windData[station] : 5.0;
                         
+                        if (hasRealWind) fetchedWindCount++;
+
+                        const [lat, lon] = STATIONS[station];
                         const wbgt = calculateWindAdjustedWBGT(temp, rh, wind);
                         const color = getWBGTColor(parseFloat(wbgt));
 
                         const popupHtml = `
-                            <div style="font-family:sans-serif; font-size:13px; color:#1e293b; min-width:140px;">
+                            <div style="font-family:sans-serif; font-size:13px; color:#1e293b; min-width:150px;">
                                 <b style="font-size:14px;">${station}</b><hr style="margin:4px 0;">
                                 氣溫: <b>${temp.toFixed(1)}°C</b><br>
                                 相對濕度: <b>${rh.toFixed(0)}%</b><br>
-                                風速: <b>${wind.toFixed(1)} km/h</b><br>
+                                風速: <b>${wind.toFixed(1)} km/h</b> ${hasRealWind ? '<span style="color:#0284c7; font-size:11px;">(實測)</span>' : ''}<br>
                                 WBGT 指數: <b style="color:${color};">${wbgt}°C</b>
                             </div>
                         `;
@@ -259,13 +285,13 @@
                         L.circleMarker([lat, lon], {
                             radius: 10,
                             fillColor: color,
-                            color: "#0f172a",
+                            color: hasRealWind ? "#38bdf8" : "#0f172a",
                             weight: 2,
                             opacity: 1,
                             fillOpacity: 0.85
                         })
                         .bindPopup(popupHtml)
-                        .bindTooltip(`${station}: ${temp.toFixed(1)}°C (WBGT ${wbgt}°C)`)
+                        .bindTooltip(`${station}: ${temp.toFixed(1)}°C (風速 ${wind.toFixed(1)} km/h)`)
                         .addTo(map);
 
                         count++;
@@ -273,7 +299,7 @@
                 });
 
                 const nowStr = new Date().toLocaleTimeString();
-                statusDiv.innerHTML = `<span class="text-emerald-400">● JS 渲染完成 (${count} 個測站 - 已融合風速修正)</span> — 更新時間：${nowStr}`;
+                statusDiv.innerHTML = `<span class="text-emerald-400">● JS 渲染完成 (${count} 個測站，其中 ${fetchedWindCount} 個取得即時風速)</span> — 更新時間：${nowStr}`;
 
             } catch (err) {
                 statusDiv.innerHTML = `<span class="text-red-400">數據讀取失敗: ${err.message}</span>`;
