@@ -87,7 +87,7 @@
         .legend-labels { display: flex; justify-content: space-between; margin-top: 2px; color: #94a3b8; }
     </style>
 
-    <!-- PyScript Engine Configuration for Python Kernel Analytics -->
+    <!-- PyScript Engine Configuration -->
     <py-config>
         packages = ["numpy", "scipy"]
     </py-config>
@@ -119,7 +119,7 @@
 
         <label class="checkbox-label">
             <input type="checkbox" id="toggleHeatmap" checked py-change="update_dashboard">
-            Strike Probability Heatmap (KDE)
+            Strike Probability Heatmap (150 km Radius)
         </label>
 
         <label class="checkbox-label">
@@ -133,15 +133,16 @@
         </label>
     </div>
 
-    <!-- Probability Density Smoothing Radius -->
+    <!-- Strike Radius Calibration -->
     <div class="control-group">
-        <label for="radiusSlider">PROBABILITY BLUR RADIUS:</label>
-        <input type="range" id="radiusSlider" min="15" max="50" value="28" py-change="update_dashboard">
+        <label for="radiusKmInput">STRIKE PROBABILITY RADIUS (KM):</label>
+        <input type="range" id="radiusKmInput" min="50" max="300" value="150" step="10" py-change="update_dashboard">
+        <div style="text-align: right; font-size: 11px; color: #38bdf8; margin-top: 2px;" id="radiusDisplay">150 km</div>
     </div>
 
     <!-- Embedded Heatmap Color Legend -->
     <div class="legend">
-        <span>Strike Probability Density Scale</span>
+        <span>Strike Probability Scale (within 150 km)</span>
         <div class="legend-bar"></div>
         <div class="legend-labels">
             <span>Low (10%)</span>
@@ -155,8 +156,7 @@
 
 <script type="py">
 import numpy as np
-from scipy.stats import gaussian_kde
-from js import document, L
+from js import document, L, window
 from pyodide.ffi import to_js
 
 # WP952026 Track Dataset
@@ -194,6 +194,11 @@ def compute_ensemble_coords(model="gefs"):
 
     return member_lons, member_lats
 
+# Function to calculate pixel radius dynamically for a physical distance (km)
+def get_pixel_radius(lat, radius_km, map_obj):
+    meters_per_pixel = 156543.03392 * np.cos(np.radians(lat)) / (2 ** map_obj.getZoom())
+    return (radius_km * 1000.0) / meters_per_pixel
+
 # Initialize Native Leaflet Web Map
 map_center = L.latLng(storm_data["lat"], storm_data["lon"])
 map_js = L.map('map', to_js({'zoomControl': False})).setView(map_center, 6)
@@ -216,7 +221,9 @@ def update_dashboard(event=None):
     show_heatmap = document.getElementById("toggleHeatmap").checked
     show_spaghetti = document.getElementById("toggleSpaghetti").checked
     show_mean = document.getElementById("toggleMean").checked
-    heat_radius = int(document.getElementById("radiusSlider").value)
+    
+    radius_km = float(document.getElementById("radiusKmInput").value)
+    document.getElementById("radiusDisplay").innerText = f"{int(radius_km)} km"
 
     # Clear old Leaflet map layers
     for layer in active_layers:
@@ -226,8 +233,9 @@ def update_dashboard(event=None):
     # Calculate ensemble coordinates using Python backend
     m_lons, m_lats = compute_ensemble_coords(model=model_choice)
 
-    # 1. Direct Leaflet Heatmap Layer rendering Probability Color Map
+    # 1. Leaflet Heatmap Layer calibrated directly to 150 km Strike Distance
     if show_heatmap:
+        pixel_radius = get_pixel_radius(storm_data["lat"], radius_km, map_js)
         heat_points = []
         for i in range(len(m_lons)):
             for j in range(len(m_lons[i])):
@@ -237,8 +245,8 @@ def update_dashboard(event=None):
         heat_layer = L.heatLayer(
             to_js(heat_points),
             to_js({
-                'radius': heat_radius,
-                'blur': 20,
+                'radius': pixel_radius,
+                'blur': pixel_radius * 0.65,
                 'maxZoom': 10,
                 'gradient': {
                     0.2: '#0000ff',
@@ -287,6 +295,9 @@ def update_dashboard(event=None):
             active_layers.append(marker)
 
     map_js.flyTo(map_center, 6)
+
+# Handle dynamic re-scaling on zoom changes
+map_js.on('zoomend', to_js(lambda e: update_dashboard()))
 
 # Initial run
 update_dashboard()
