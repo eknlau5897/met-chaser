@@ -109,20 +109,16 @@
                         <span>31.1-33 ： 特別警戒</span>
                     </div>
                     <div class="flex items-center gap-3">
-                        <span class="w-3.5 h-3.5 rounded-full bg-red-600 inline-block border border-black/50"></span>
+                        <span class="w-3.5 h-3.5 rounded-full bg-purple-800 inline-block border border-black/50"></span>
                         <span>33.1-35 ： 危險</span>
                     </div>
                     <div class="flex items-center gap-3">
-                        <span class="w-3.5 h-3.5 rounded-full bg-red-600 inline-block border border-black/50"></span>
+                        <span class="w-3.5 h-3.5 rounded-full bg-indigo-900 inline-block border border-black/50"></span>
                         <span>35.1-36 ： 高危</span>
                     </div>
                     <div class="flex items-center gap-3">
-                        <span class="w-3.5 h-3.5 rounded-full bg-red-600 inline-block border border-black/50"></span>
-                        <span>35.1-36 ：非常高危</span>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <span class="w-3.5 h-3.5 rounded-full bg-red-600 inline-block border border-black/50"></span>
-                        <span>&gt 36 ：可致命</span>
+                        <span class="w-3.5 h-3.5 rounded-full bg-white inline-block border border-black/50"></span>
+                        <span>&gt; 36 ：可致命</span>
                     </div>
                 </div>
             </div>
@@ -191,19 +187,20 @@
                         const tc = parseFloat(item.value);
                         const [lat, lon] = STATION_COORDINATES[name];
 
-                        // WBGT Calculation
+                        // WBGT Calculation: WBGT = 0.7 * Heat Index + 3
                         const tf = (tc * 9 / 5) + 32;
                         const hiF = 0.5 * (tf + 61.0 + ((tf - 68.0) * 1.2) + (rhVal * 0.94));
                         const hiC = (hiF - 32) * 5 / 9;
-                        const wbgt = ((0.76 * hiC) - 1.25).toFixed(1);
+                        const wbgt = (0.7 * hiC + 3).toFixed(1);
 
+                        // Original Color Assignments (Fixed missing '#' prefix bug)
                         let color = '#0000FF';
                         if (wbgt >= 36) color = '#FFFFFF';
                         else if (wbgt >= 35) color = '#4B0082';
                         else if (wbgt >= 33) color = '#800080';
-                        else if (wbgt >= 31) color ='FF0000';
-                        else if (wbgt >= 30) color ='FFA500';
-                        else if (wbgt >= 29) color ='FFFF00';
+                        else if (wbgt >= 31) color = '#FF0000';
+                        else if (wbgt >= 30) color = '#FFA500';
+                        else if (wbgt >= 29) color = '#FFFF00';
 
                         const circle = L.circleMarker([lat, lon], {
                             radius: 10,
