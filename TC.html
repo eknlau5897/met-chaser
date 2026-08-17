@@ -202,7 +202,7 @@ def generate_ensemble_plot(storm, mode="prob_density", num_members=30, show_mean
     return f"data:image/png;base64,{img_b64}"
 
 # Initialize Leaflet Map
-first_storm = storms_db["WP902026"]
+first_storm = storms_db["WP952026"]
 map_center = L.latLng(first_storm["lat"], first_storm["lon"])
 map_js = L.map('map').setView(map_center, 6)
 
