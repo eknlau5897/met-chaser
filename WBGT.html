@@ -3,7 +3,7 @@
 <head> 
     <meta charset="UTF-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> 
-    <title>香港氣象追擊網 | 戶外 WBGT 實況監測 (Pandas + Folium + PyScript)</title> 
+    <title>香港氣象追擊網 | 戶外 WBGT 實況監測 (Pure JS)</title> 
     
     <!-- Tailwind CSS --> 
     <script src="https://cdn.tailwindcss.com"></script> 
@@ -14,21 +14,16 @@
         } 
     </script> 
     
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <style type="text/tailwindcss"> 
         @layer utilities { 
             .model-card { @apply bg-slate-900 rounded-xl shadow-lg border border-slate-800 overflow-hidden; } 
         } 
         body { background-color: #0b0f19; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }  
     </style> 
-
-    <!-- PyScript CSS & JS -->
-    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
-    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
-
-    <!-- Configure PyScript Packages (Folium + Pandas) -->
-    <py-config>
-        packages = ["folium", "pandas"]
-    </py-config>
 </head> 
 
 <body class="min-h-screen flex flex-col antialiased"> 
@@ -45,7 +40,7 @@
             <div class="hidden md:flex items-center gap-4 text-xs text-slate-400"> 
                 <span class="flex items-center gap-1.5"> 
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 
-                    Pandas + Folium 驅動中 
+                    Pure JS + Leaflet (1-Decimal Precision) 
                 </span> 
             </div> 
         </div> 
@@ -55,176 +50,171 @@
     <main class="container mx-auto px-4 py-6 flex-grow"> 
         <div class="text-center mb-6"> 
             <h2 class="text-2xl md:text-3xl font-bold text-white mb-1">戶外濕球黑球溫度 (WBGT) 實況監測</h2> 
-            <p class="text-sky-400 text-sm font-medium mt-1">使用 Python Pandas `pd.read_csv` 合併氣溫與濕度高精度數據</p> 
+            <p class="text-sky-400 text-sm font-medium mt-1">原生 JavaScript 直接讀取天文台 1-decimal CSV 高精度數據</p> 
         </div> 
 
         <div class="model-card p-4 relative"> 
             <div id="status" class="mb-4 p-3 bg-slate-950 border border-slate-800 rounded-lg text-sm text-sky-300 font-mono text-center flex items-center justify-center gap-2"> 
-                正在初始化 Python 環境並載入 Pandas 與 Folium... 
+                正在獲取香港天文台即時數據... 
             </div> 
 
             <div id="map-container" class="w-full h-[600px] rounded-lg border border-slate-800 bg-slate-950 overflow-hidden"></div> 
         </div> 
     </main> 
 
-    <!-- PyScript Data Engine -->
-    <script type="py">
-import io
-import math
-import asyncio
-from datetime import datetime
-import pandas as pd
-from pyodide.http import pyfetch
-from pyscript import display
-import folium
-from js import document
+    <script>
+        const STATIONS = {
+            "Chek Lap Kok": [22.3094, 113.9219],
+            "Cheung Chau": [22.2011, 114.0267],
+            "Clear Water Bay": [22.2878, 114.2858],
+            "Happy Valley": [22.2683, 114.1836],
+            "HK Observatory": [22.3006, 114.1742],
+            "Hong Kong Observatory": [22.3006, 114.1742],
+            "HK Park": [22.2783, 114.1586],
+            "Kai Tak Runway Park": [22.3047, 114.2169],
+            "Kau Sai Chau": [22.3650, 114.3094],
+            "King's Park": [22.3119, 114.1728],
+            "Kowloon City": [22.3331, 114.1878],
+            "Kwun Tong": [22.3122, 114.2264],
+            "Lau Fau Shan": [22.4689, 113.9839],
+            "Ngong Ping": [22.2578, 113.9039],
+            "Pak Tam Chung": [22.3908, 114.3231],
+            "Peng Chau": [22.2853, 114.0381],
+            "Sai Kung": [22.3836, 114.2708],
+            "Sha Tin": [22.3858, 114.2089],
+            "Sham Shui Po": [22.3358, 114.1569],
+            "Shau Kei Wan": [22.2817, 114.2272],
+            "Shek Kong": [22.4361, 114.0847],
+            "Sheung Shui": [22.5022, 114.1297],
+            "Stanley": [22.2142, 114.2186],
+            "Ta Kwu Ling": [22.5286, 114.1567],
+            "Tai Lung": [22.4975, 114.1136],
+            "Tai Mei Tuk": [22.4753, 114.2375],
+            "Tai Mo Shan": [22.4108, 114.1242],
+            "Tai Po": [22.4461, 114.1783],
+            "Tate's Cairn": [22.3586, 114.2178],
+            "The Peak": [22.2658, 114.1428],
+            "Tseung Kwan O": [22.3158, 114.2556],
+            "Tsing Yi": [22.3442, 114.1100],
+            "Tsuen Wan Ho Koon": [22.3836, 114.1139],
+            "Tsuen Wan Shing Mun Valley": [22.3756, 114.1258],
+            "Tuen Mun": [22.3925, 113.9744],
+            "Waglan Island": [22.1822, 114.3014],
+            "Wetland Park": [22.4708, 114.0064],
+            "Wong Chuk Hang": [22.2478, 114.1736],
+            "Wong Tai Sin": [22.3417, 114.1953],
+            "Yuen Long Park": [22.4419, 114.0183]
+        };
 
-STATIONS = {
-    "Chek Lap Kok": [22.3094, 113.9219],
-    "Cheung Chau": [22.2011, 114.0267],
-    "Clear Water Bay": [22.2878, 114.2858],
-    "Happy Valley": [22.2683, 114.1836],
-    "HK Observatory": [22.3006, 114.1742],
-    "Hong Kong Observatory": [22.3006, 114.1742],
-    "HK Park": [22.2783, 114.1586],
-    "Kai Tak Runway Park": [22.3047, 114.2169],
-    "Kau Sai Chau": [22.3650, 114.3094],
-    "King's Park": [22.3119, 114.1728],
-    "Kowloon City": [22.3331, 114.1878],
-    "Kwun Tong": [22.3122, 114.2264],
-    "Lau Fau Shan": [22.4689, 113.9839],
-    "Ngong Ping": [22.2578, 113.9039],
-    "Pak Tam Chung": [22.3908, 114.3231],
-    "Peng Chau": [22.2853, 114.0381],
-    "Sai Kung": [22.3836, 114.2708],
-    "Sha Tin": [22.3858, 114.2089],
-    "Sham Shui Po": [22.3358, 114.1569],
-    "Shau Kei Wan": [22.2817, 114.2272],
-    "Shek Kong": [22.4361, 114.0847],
-    "Sheung Shui": [22.5022, 114.1297],
-    "Stanley": [22.2142, 114.2186],
-    "Ta Kwu Ling": [22.5286, 114.1567],
-    "Tai Lung": [22.4975, 114.1136],
-    "Tai Mei Tuk": [22.4753, 114.2375],
-    "Tai Mo Shan": [22.4108, 114.1242],
-    "Tai Po": [22.4461, 114.1783],
-    "Tate's Cairn": [22.3586, 114.2178],
-    "The Peak": [22.2658, 114.1428],
-    "Tseung Kwan O": [22.3158, 114.2556],
-    "Tsing Yi": [22.3442, 114.1100],
-    "Tsuen Wan Ho Koon": [22.3836, 114.1139],
-    "Tsuen Wan Shing Mun Valley": [22.3756, 114.1258],
-    "Tuen Mun": [22.3925, 113.9744],
-    "Waglan Island": [22.1822, 114.3014],
-    "Wetland Park": [22.4708, 114.0064],
-    "Wong Chuk Hang": [22.2478, 114.1736],
-    "Wong Tai Sin": [22.3417, 114.1953],
-    "Yuen Long Park": [22.4419, 114.0183]
-}
+        // Primary and Fallback Proxy Handlers
+        const PROXIES = [
+            url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+            url => `https://thingproxy.freeboard.io/fetch/${url}`
+        ];
 
-# CORS Proxy appended to bypass cross-origin browser blocking
-# Option A: AllOrigins Raw Proxy (Recommended for GitHub Pages)
-def get_proxy_url(target_url):
-    return "https://api.allorigins.win/raw?url=" + urllib.parse.quote(target_url, safe='')
+        const TEMP_RAW_URL = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_temperature.csv";
+        const RH_RAW_URL   = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_humidity.csv";
 
-TEMP_CSV_URL = get_proxy_url("https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_temperature.csv")
-RH_CSV_URL   = get_proxy_url("https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_humidity.csv")
+        function calculateOutdoorWBGT(temp, rh) {
+            const vp = (rh / 100.0) * 6.105 * Math.exp((17.27 * temp) / (237.7 + temp));
+            const wbgt = (0.567 * temp) + (0.393 * vp) + 3.94;
+            return wbgt.toFixed(2);
+        }
 
-def calculate_outdoor_wbgt(temp_c, rh):
-    vp = (rh / 100.0) * 6.105 * math.exp((17.27 * temp_c) / (237.7 + temp_c))
-    wbgt = (0.567 * temp_c) + (0.393 * vp) + 3.94
-    return round(wbgt, 2)
+        function getWBGTColor(wbgt) {
+            if (wbgt >= 36.0) return "#FFFFFF";
+            if (wbgt >= 35.0) return "#312E81";
+            if (wbgt >= 33.0) return "#9333EA";
+            if (wbgt >= 31.0) return "#DC2626";
+            if (wbgt >= 30.0) return "#F97316";
+            if (wbgt >= 29.0) return "#FACC15";
+            return "#10B981";
+        }
 
-def get_wbgt_color(wbgt):
-    if wbgt >= 36.0: return "#FFFFFF"
-    elif wbgt >= 35.0: return "#312E81"
-    elif wbgt >= 33.0: return "#9333EA"
-    elif wbgt >= 31.0: return "#DC2626"
-    elif wbgt >= 30.0: return "#F97316"
-    elif wbgt >= 29.0: return "#FACC15"
-    return "#10B981"
+        async function fetchCSVWithFallback(rawUrl) {
+            for (const proxyFn of PROXIES) {
+                try {
+                    const res = await fetch(proxyFn(rawUrl));
+                    if (!res.ok) continue;
+                    const text = await res.text();
+                    
+                    const lines = text.trim().split("\n").slice(1);
+                    const data = {};
+                    lines.forEach(line => {
+                        const cols = line.split(",");
+                        if (cols.length >= 3) {
+                            const station = cols[1].trim();
+                            const val = parseFloat(cols[2].trim());
+                            if (!isNaN(val)) data[station] = val;
+                        }
+                    });
+                    
+                    if (Object.keys(data).length > 0) return data;
+                } catch (e) {
+                    console.warn("Proxy attempt failed, trying next...", e);
+                }
+            }
+            throw new Error("Unable to fetch CSV through available proxies.");
+        }
 
-async def fetch_dataframe(url, value_col_name):
-    # Fetch CSV via pyfetch and parse string buffer directly with pandas
-    res = await pyfetch(url)
-    csv_str = await res.string()
-    
-    # Read into DataFrame and name columns cleanly
-    df = pd.read_csv(io.StringIO(csv_str), header=0, names=["datetime", "station", value_col_name])
-    
-    # Convert metric columns to float, dropping invalid rows
-    df[value_col_name] = pd.to_numeric(df[value_col_name], errors="coerce")
-    df["station"] = df["station"].astype(str).str.strip()
-    return df.dropna(subset=[value_col_name])
+        async function initMap() {
+            const statusDiv = document.getElementById("status");
+            try {
+                const [tempData, rhData] = await Promise.all([
+                    fetchCSVWithFallback(TEMP_RAW_URL),
+                    fetchCSVWithFallback(RH_RAW_URL)
+                ]);
 
-async def generate_folium_map():
-    status_div = document.getElementById("status")
-    try:
-        status_div.innerHTML = '<span class="text-sky-400 animate-pulse">正在使用 Pandas 解析與合併即時 CSV...</span>'
-        
-        # Concurrently fetch Temperature and Humidity DataFrames
-        df_temp, df_rh = await asyncio.gather(
-            fetch_dataframe(TEMP_CSV_URL, "temp"),
-            fetch_dataframe(RH_CSV_URL, "rh")
-        )
-        
-        # Merge both DataFrames on station name
-        merged_df = pd.merge(df_temp, df_rh[["station", "rh"]], on="station", how="left")
-        merged_df["rh"] = merged_df["rh"].fillna(75.0) # Default RH fallback if missing
-        
-        # Filter stations matching our coordinate reference dictionary
-        merged_df = merged_df[merged_df["station"].isin(STATIONS.keys())]
+                const map = L.map('map-container').setView([22.3527, 114.1272], 11);
+                
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; CartoDB'
+                }).addTo(map);
 
-        m = folium.Map(
-            location=[22.3527, 114.1272],
-            zoom_start=11,
-            tiles="CartoDB dark_matter"
-        )
-        
-        count = 0
-        for _, row in merged_df.iterrows():
-            station_name = row["station"]
-            temp_c = row["temp"]
-            rh_val = row["rh"]
-            
-            lat, lon = STATIONS[station_name]
-            wbgt = calculate_outdoor_wbgt(temp_c, rh_val)
-            color = get_wbgt_color(wbgt)
-            
-            popup_html = f"""
-                <div style="font-family:sans-serif; font-size:13px; color:#1e293b; min-width:140px;">
-                    <b style="font-size:14px;">{station_name}</b><hr style="margin:4px 0;">
-                    氣溫: <b>{temp_c:.1f}°C</b><br>
-                    相對濕度: <b>{rh_val:.0f}%</b><br>
-                    估算戶外 WBGT: <b style="color:{color};">{wbgt:.2f}°C</b>
-                </div>
-            """
-            
-            folium.CircleMarker(
-                location=[lat, lon],
-                radius=10,
-                popup=folium.Popup(popup_html, max_width=220),
-                tooltip=f"{station_name}: WBGT {wbgt:.2f}°C",
-                color="#0f172a",
-                weight=2,
-                fill=True,
-                fill_color=color,
-                fill_opacity=0.85
-            ).add_to(m)
-            
-            count += 1
+                let count = 0;
+                Object.keys(tempData).forEach(station => {
+                    if (STATIONS[station]) {
+                        const temp = tempData[station];
+                        const rh = rhData[station] !== undefined ? rhData[station] : 75.0;
+                        const [lat, lon] = STATIONS[station];
+                        const wbgt = calculateOutdoorWBGT(temp, rh);
+                        const color = getWBGTColor(parseFloat(wbgt));
 
-        container = document.getElementById("map-container")
-        container.innerHTML = "" 
-        display(m, target="map-container")
-        
-        now_str = datetime.now().strftime("%H:%M:%S")
-        status_div.innerHTML = f'<span class="text-emerald-400">● Pandas & Folium 渲染完成 ({count} 個測站)</span> — 更新時間：{now_str}'
+                        const popupHtml = `
+                            <div style="font-family:sans-serif; font-size:13px; color:#1e293b; min-width:140px;">
+                                <b style="font-size:14px;">${station}</b><hr style="margin:4px 0;">
+                                氣溫: <b>${temp.toFixed(1)}°C</b><br>
+                                相對濕度: <b>${rh.toFixed(0)}%</b><br>
+                                估算戶外 WBGT: <b style="color:${color};">${wbgt}°C</b>
+                            </div>
+                        `;
 
-    except Exception as e:
-        status_div.innerHTML = f'<span class="text-red-400">地圖生成失敗: {str(e)}</span>'
+                        L.circleMarker([lat, lon], {
+                            radius: 10,
+                            fillColor: color,
+                            color: "#0f172a",
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.85
+                        })
+                        .bindPopup(popupHtml)
+                        .bindTooltip(`${station}: ${temp.toFixed(1)}°C (WBGT ${wbgt}°C)`)
+                        .addTo(map);
 
-asyncio.create_task(generate_folium_map())
+                        count++;
+                    }
+                });
+
+                const nowStr = new Date().toLocaleTimeString();
+                statusDiv.innerHTML = `<span class="text-emerald-400">● JS 渲染完成 (${count} 個測站)</span> — 更新時間：${nowStr}`;
+
+            } catch (err) {
+                statusDiv.innerHTML = `<span class="text-red-400">數據讀取失敗: ${err.message}</span>`;
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", initMap);
     </script>
 </body> 
 </html>
