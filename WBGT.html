@@ -108,8 +108,9 @@
 
         // Primary and Fallback Proxy Handlers
         const PROXIES = [
+            url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
             url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-            url => `https://thingproxy.freeboard.io/fetch/${url}`
+            url => `https://proxy.cors.sh/${url}`
         ];
 
         const TEMP_RAW_URL = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_temperature.csv";
