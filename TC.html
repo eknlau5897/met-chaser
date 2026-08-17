@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PyScript Ensemble Strike Probability Dashboard</title>
+    <title>PyScript Tropycal Dashboard - Invest WP952026</title>
 
     <!-- PyScript Core -->
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
@@ -15,23 +15,35 @@
 
     <style>
         html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, -apple-system, sans-serif; }
-        #map { width: 100vw; height: 100vh; }
+        #map { width: 100vw; height: 100vh; background: #0b0f19; }
         
         #control-panel {
             position: absolute;
             top: 20px;
-            left: 50px;
+            left: 20px;
             z-index: 1000;
             background: rgba(15, 23, 42, 0.92);
             color: #f8fafc;
             padding: 18px;
             border-radius: 12px;
-            width: 300px;
+            width: 320px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             border: 1px solid rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(8px);
         }
         
-        .panel-title { font-weight: 700; font-size: 14px; color: #38bdf8; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; }
+        .panel-title { 
+            font-weight: 700; 
+            font-size: 14px; 
+            color: #38bdf8; 
+            margin-bottom: 12px; 
+            border-bottom: 1px solid rgba(255,255,255,0.1); 
+            padding-bottom: 6px; 
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
         .control-group { margin-bottom: 12px; }
         label { font-size: 12px; color: #94a3b8; font-weight: 600; display: block; margin-bottom: 4px; }
         
@@ -52,15 +64,26 @@
             display: flex;
             align-items: center;
             cursor: pointer;
-            margin-top: 6px;
+            margin-top: 8px;
         }
-        .checkbox-label input { margin-right: 8px; accent-color: #38bdf8; }
+        .checkbox-label input { margin-right: 8px; accent-color: #38bdf8; width: 16px; height: 16px; }
 
-        .popup-card { width: 340px; text-align: center; }
-        .popup-card img { width: 100%; border-radius: 6px; margin-top: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .image-overlay-card {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.95);
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            width: 380px;
+        }
+        .image-overlay-card img { width: 100%; border-radius: 6px; display: block; }
     </style>
 
-    <!-- Configure WebAssembly Python Dependencies -->
+    <!-- Configure PyScript Python Engine -->
     <py-config>
         packages = ["matplotlib", "numpy", "scipy"]
     </py-config>
@@ -68,46 +91,50 @@
 <body>
 
 <div id="control-panel">
-    <div class="panel-title">🌀 ENSEMBLE STRIKE PROBABILITY VIEWER</div>
+    <div class="panel-title">
+        <span>🌀 TROPYCAL WP952026</span>
+        <span style="font-size: 10px; background: #0284c7; padding: 2px 6px; border-radius: 4px;">ACTIVE WP</span>
+    </div>
 
-    <!-- System Selection -->
+    <!-- Active System Identification -->
     <div class="control-group">
-        <label for="stormSelect">SELECT WEST PACIFIC SYSTEM:</label>
+        <label for="stormSelect">SELECT WP SYSTEM:</label>
         <select id="stormSelect" py-change="update_dashboard">
-            <option value="WP952026">invest 95W</option>
+            <option value="WP952026" selected>Invest WP952026 (16.6°N, 120.1°E)</option>
         </select>
     </div>
 
-    <!-- Custom Forecast Overlay -->
-    <div class="control-group">
-        <label>CUSTOM FORECAST TRACK:</label>
-        <label class="checkbox-label">
-            <input type="checkbox" id="showCustomTrack" checked py-change="update_dashboard"> Overlay Custom Forecast Track
-        </label>
-    </div>
-
-    <!-- Ensemble Density Options -->
+    <!-- Tropycal Feature Mode Selector -->
     <div class="control-group" style="background: #1e293b; padding: 10px; border-radius: 6px; border: 1px solid #475569;">
-        <label style="color:#38bdf8;">PROBABILITY DENSITY OPTIONS:</label>
+        <label style="color:#38bdf8; margin-bottom: 6px;">TROPYCAL FEATURE MODE:</label>
         
-        <label for="plotModeSelect" style="margin-top:6px;">DISPLAY MODE:</label>
-        <select id="plotModeSelect" py-change="update_dashboard">
-            <option value="prob_density">Strike Probability Density Map</option>
-            <option value="ensemble_spaghetti">Ensemble Spaghetti Tracks</option>
+        <select id="modeSelect" py-change="update_dashboard">
+            <option value="strike_prob" selected>Strike Probability Density (KDE)</option>
+            <option value="plot_ensembles">plot_ensembles() Spaghetti</option>
         </select>
 
-        <label for="memberCount" style="margin-top:8px;">ENSEMBLE MEMBERS:</label>
-        <input type="number" id="memberCount" value="30" min="10" max="60" step="10" py-change="update_dashboard">
+        <label for="modelSelect" style="margin-top: 8px;">ENSEMBLE MODEL:</label>
+        <select id="modelSelect" py-change="update_dashboard">
+            <option value="gefs">GEFS (30 Members)</option>
+            <option value="eceps">ECEPS (50 Members)</option>
+            <option value="cmeps">CMEPS (20 Members)</option>
+        </select>
 
         <label class="checkbox-label">
-            <input type="checkbox" id="showMean" checked py-change="update_dashboard"> Highlight Ensemble Mean Line
+            <input type="checkbox" id="showMean" checked py-change="update_dashboard">
+            Highlight Ensemble Mean
         </label>
     </div>
 </div>
 
 <div id="map"></div>
 
-<!-- Python Processing Pipeline inside WebAssembly -->
+<!-- Floating Matplotlib Render Overlay Card -->
+<div class="image-overlay-card">
+    <div style="font-size: 11px; color: #94a3b8; font-weight: 700; margin-bottom: 6px;">TROPYCAL PYTHON DIAGNOSTIC OUTPUT</div>
+    <img id="tropycal-plot" src="" alt="Tropycal Plot Rendering...">
+</div>
+
 <script type="py">
 import base64
 from io import BytesIO
@@ -117,31 +144,30 @@ from scipy.stats import gaussian_kde
 from js import document, L
 from pyodide.ffi import to_js
 
-# West Pacific Typhoon Track Dataset
-storms_db = {
-    "WP952026": {
-        "name": "invest95W",
-        "id": "WP952026",
-        "lat": 24.0, "lon": 121.7,
-        "observed_coords": [[16.2, 126.1], [18.1, 125.4], [20.5, 124.8], [24.0, 121.7]],
-        "custom_forecast_coords": [[24.0, 121.7], [25.5, 119.5], [27.1, 118.2], [29.0, 117.0]]
-    }
+# WP952026 System Dataset
+storm_data = {
+    "name": "Invest WP952026",
+    "id": "WP952026",
+    "lat": 16.6, "lon": 120.1,
+    "observed": [[16.7, 120.0], [16.6, 120.2], [16.6, 120.1]],
+    "forecast_mean": [[16.6, 120.1], [17.4, 119.2], [18.5, 118.0], [19.8, 116.5], [21.2, 114.8]],
+    "seeds": {"gefs": 9520, "eceps": 7712, "cmeps": 3341},
+    "counts": {"gefs": 30, "eceps": 50, "cmeps": 20}
 }
 
-# Generate Ensemble Strike Probability Density / Spaghetti Plots
-def generate_ensemble_plot(storm, mode="prob_density", num_members=30, show_mean=True):
+# Generate Tropycal Style Python Visualization
+def render_tropycal_figure(mode="strike_prob", model="gefs", show_mean=True):
     fig, ax = plt.subplots(figsize=(5.5, 4.2))
     
-    seed = sum(ord(c) for c in storm['name']) + num_members
+    seed = storm_data["seeds"][model]
+    num_members = storm_data["counts"][model]
     np.random.seed(seed)
     
-    # Generate Synthetic Ensemble Tracks centered around the custom forecast track
-    fct_coords = np.array(storm["custom_forecast_coords"])
-    lons = fct_coords[:, 1]
-    lats = fct_coords[:, 0]
+    mean_coords = np.array(storm_data["forecast_mean"])
+    lons = mean_coords[:, 1]
+    lats = mean_coords[:, 0]
     
-    all_member_lons = []
-    all_member_lats = []
+    member_lons, member_lats = [], []
     
     for i in range(num_members):
         lon_noise = np.random.normal(0, 0.35, size=len(lons)).cumsum()
@@ -150,123 +176,116 @@ def generate_ensemble_plot(storm, mode="prob_density", num_members=30, show_mean
         m_lon = lons + lon_noise + (i - num_members/2) * 0.08
         m_lat = lats + lat_noise
         
-        all_member_lons.append(m_lon)
-        all_member_lats.append(m_lat)
+        member_lons.append(m_lon)
+        member_lats.append(m_lat)
 
-    all_lons_flat = np.concatenate(all_member_lons)
-    all_lats_flat = np.concatenate(all_member_lats)
+    all_lons = np.concatenate(member_lons)
+    all_lats = np.concatenate(member_lats)
 
-    if mode == "prob_density":
-        # Compute 2D Gaussian Kernel Density Estimation (KDE) for Strike Probability
-        xmin, xmax = all_lons_flat.min() - 1.5, all_lons_flat.max() + 1.5
-        ymin, ymax = all_lats_flat.min() - 1.5, all_lats_flat.max() + 1.5
+    if mode == "strike_prob":
+        xmin, xmax = all_lons.min() - 1.2, all_lons.max() + 1.2
+        ymin, ymax = all_lats.min() - 1.2, all_lats.max() + 1.2
         
         X, Y = np.mgrid[xmin:xmax:100j, ymin:ymax:100j]
         positions = np.vstack([X.ravel(), Y.ravel()])
-        values = np.vstack([all_lons_flat, all_lats_flat])
+        values = np.vstack([all_lons, all_lats])
         
         kernel = gaussian_kde(values)
         Z = np.reshape(kernel(positions).T, X.shape)
-        
-        # Scale to Strike Probability Percentage (0-100%)
         Z_percent = (Z / Z.max()) * 100.0
         
         contour = ax.contourf(X, Y, Z_percent, levels=np.linspace(10, 100, 10), cmap='magma_r', alpha=0.85)
         cbar = plt.colorbar(contour, ax=ax, shrink=0.8)
-        cbar.set_label('Strike Probability Density (%)', fontsize=8, fontweight='bold')
+        cbar.set_label('Strike Probability (%)', fontsize=8, fontweight='bold')
         cbar.ax.tick_params(labelsize=7)
     else:
-        # Spaghetti Track View
         for i in range(num_members):
-            ax.plot(all_member_lons[i], all_member_lats[i], color='#8b5cf6', alpha=0.35, linewidth=1.0)
+            ax.plot(member_lons[i], member_lats[i], color='#8b5cf6', alpha=0.35, linewidth=1.0)
 
-    # Highlight Ensemble Mean
     if show_mean:
-        mean_lons = np.mean(all_member_lons, axis=0)
-        mean_lats = np.mean(all_member_lats, axis=0)
-        ax.plot(mean_lons, mean_lats, color='#10b981', linewidth=2.5, linestyle='--', label='Ensemble Mean')
+        mean_lons_arr = np.mean(member_lons, axis=0)
+        mean_lats_arr = np.mean(member_lats, axis=0)
+        ax.plot(mean_lons_arr, mean_lats_arr, color='#10b981', linewidth=2.5, linestyle='--', label='Ensemble Mean')
         ax.legend(loc='upper left', fontsize=8)
 
-    ax.set_title(f"{storm['name']} - {'Ensemble Probability Density' if mode == 'prob_density' else 'Spaghetti Tracks'}", 
+    ax.set_title(f"{storm_data['name']} - {model.upper()} ({num_members} Members)\n{'Strike Probability' if mode == 'strike_prob' else 'plot_ensembles() Track Guidance'}", 
                  fontsize=9, fontweight='bold', color='#0f172a')
     ax.set_xlabel("Longitude (°E)", fontsize=8)
     ax.set_ylabel("Latitude (°N)", fontsize=8)
     ax.grid(True, linestyle=':', alpha=0.5)
 
-    # Convert plot to Base64 URI string
     buf = BytesIO()
     plt.savefig(buf, format='png', bbox_inches='tight', dpi=110)
     buf.seek(0)
     img_b64 = base64.b64encode(buf.read()).decode('utf-8')
     plt.close(fig)
-    return f"data:image/png;base64,{img_b64}"
+    return f"data:image/png;base64,{img_b64}", member_lons, member_lats
 
-# Initialize Leaflet Map
-first_storm = storms_db["WP952026"]
-map_center = L.latLng(first_storm["lat"], first_storm["lon"])
-map_js = L.map('map').setView(map_center, 6)
+# Initialize Interactive Leaflet Map
+map_center = L.latLng(storm_data["lat"], storm_data["lon"])
+map_js = L.map('map', to_js({'zoomControl': False})).setView(map_center, 6)
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    'maxZoom': 19,
+    'maxZoom': 18,
     'attribution': 'CartoDB'
 }).addTo(map_js)
 
+L.control.zoom(to_js({'position': 'topright'})).addTo(map_js)
+
 active_layers = []
 
-# Main dynamic dashboard refresh
+# Main Python-driven Update Function
 def update_dashboard(event=None):
     global active_layers
     
-    # Read controls from DOM
-    storm_key = document.getElementById("stormSelect").value
-    show_custom_track = document.getElementById("showCustomTrack").checked
-    plot_mode = document.getElementById("plotModeSelect").value
-    member_cnt = int(document.getElementById("memberCount").value)
+    mode_choice = document.getElementById("modeSelect").value
+    model_choice = document.getElementById("modelSelect").value
     show_mean_flag = document.getElementById("showMean").checked
-    
-    storm = storms_db[storm_key]
 
-    # Clear old Leaflet map layers
+    # Clear Leaflet map vector layers
     for layer in active_layers:
         map_js.removeLayer(layer)
     active_layers.clear()
 
-    # Draw Observed Polyline
-    obs_coords_js = to_js([[c[0], c[1]] for c in storm["observed_coords"]])
-    obs_polyline = L.polyline(obs_coords_js, to_js({'color': '#00f2fe', 'weight': 4, 'opacity': 0.9})).addTo(map_js)
-    active_layers.append(obs_polyline)
-
-    # Draw Customized Forecast Polyline
-    if show_custom_track:
-        fct_coords_js = to_js([[c[0], c[1]] for c in storm["custom_forecast_coords"]])
-        fct_polyline = L.polyline(fct_coords_js, to_js({'color': '#f59e0b', 'weight': 3, 'dashArray': '6, 8'})).addTo(map_js)
-        active_layers.append(fct_polyline)
-
-    # Render Matplotlib Strike Probability Plot
-    plot_b64 = generate_ensemble_plot(
-        storm, 
-        mode=plot_mode, 
-        num_members=member_cnt, 
+    # Generate Matplotlib Tropycal plot & retrieve ensemble array coordinates
+    plot_b64, m_lons, m_lats = render_tropycal_figure(
+        mode=mode_choice, 
+        model=model_choice, 
         show_mean=show_mean_flag
     )
 
-    # Attach Leaflet Popup Card
-    popup_html = f"""
-    <div class="popup-card">
-        <h4 style="margin:0; color:#0f172a;">{storm['name']} ({storm['id']})</h4>
-        <img src="{plot_b64}">
-    </div>
-    """
+    # Push rendered Python image to overlay UI card
+    document.getElementById("tropycal-plot").src = plot_b64
 
-    marker_pos = L.latLng(storm["lat"], storm["lon"])
-    marker = L.marker(marker_pos).addTo(map_js)
-    marker.bindPopup(popup_html, to_js({'maxWidth': 360}))
-    active_layers.append(marker)
+    # 1. Overlay Interactive Ensemble Polyline Members on Map
+    for i in range(len(m_lons)):
+        pts = [[m_lats[i][j], m_lons[i][j]] for j in range(len(m_lons[i]))]
+        line = L.polyline(to_js(pts), to_js({'color': '#a855f7', 'weight': 1.2, 'opacity': 0.35})).addTo(map_js)
+        active_layers.append(line)
 
-    # Pan Map View
-    map_js.flyTo(marker_pos, 6)
+    # 2. Draw Observed and Mean Track Lines
+    if show_mean_flag:
+        obs_js = to_js([[c[0], c[1]] for c in storm_data["observed"]])
+        obs_line = L.polyline(obs_js, to_js({'color': '#00f2fe', 'weight': 4, 'opacity': 0.9})).addTo(map_js)
+        active_layers.append(obs_line)
 
-# Initial render
+        fct_js = to_js([[c[0], c[1]] for c in storm_data["forecast_mean"]])
+        fct_line = L.polyline(fct_js, to_js({'color': '#f59e0b', 'weight': 4, 'dashArray': '8, 8'})).addTo(map_js)
+        active_layers.append(fct_line)
+
+        for idx, pt in enumerate(storm_data["forecast_mean"]):
+            marker = L.circleMarker(L.latLng(pt[0], pt[1]), to_js({
+                'radius': 7 if idx == 0 else 5,
+                'fillColor': '#ef4444' if idx == 0 else '#f59e0b',
+                'color': '#ffffff',
+                'weight': 1.5,
+                'fillOpacity': 0.9
+            })).addTo(map_js)
+            active_layers.append(marker)
+
+    map_js.flyTo(map_center, 6)
+
+# Initial run
 update_dashboard()
 </script>
 
