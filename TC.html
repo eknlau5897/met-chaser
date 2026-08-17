@@ -119,7 +119,7 @@
 
         <label class="checkbox-label">
             <input type="checkbox" id="toggleHeatmap" checked py-change="update_dashboard">
-            Strike Probability Heatmap (KDE × 100%)
+            Strike Probability Heatmap (KDE × 100)
         </label>
 
         <label class="checkbox-label">
@@ -135,12 +135,12 @@
 
     <!-- Legend -->
     <div class="legend">
-        <span>Strike Probability Scale (150 km Radius, Scaled 100%)</span>
+        <span>Strike Probability Scale (150 km Radius, Scaled × 100)</span>
         <div class="legend-bar"></div>
         <div class="legend-labels">
-            <span>10%</span>
-            <span>50%</span>
-            <span>100%</span>
+            <span>10</span>
+            <span>50</span>
+            <span>100</span>
         </div>
     </div>
 </div>
@@ -159,7 +159,7 @@ FIXED_RADIUS_KM = 150.0
 storm_data = {
     "name": "Invest 95W",
     "id": "95W",
-    "lat": 19.5, "lon": 116.8,  # SCS / SE of Hong Kong Basin position
+    "lat": 19.5, "lon": 116.8,
     "observed": [[18.2, 118.5], [18.9, 117.6], [19.5, 116.8]],
     "forecast_mean": [[19.5, 116.8], [20.2, 115.8], [21.0, 114.7], [21.8, 113.5], [22.4, 112.1]],
     "seeds": {"gefs": 9511, "eceps": 7789, "cmeps": 3312},
@@ -219,7 +219,7 @@ def update_dashboard(event=None):
 
     m_lons, m_lats = compute_ensemble_coords(model=model_choice)
 
-    # 1. Heatmap layer with probability multiplied by 100%
+    # 1. Heatmap layer with values multiplied by 100
     if show_heatmap:
         pixel_radius = get_pixel_radius(storm_data["lat"], FIXED_RADIUS_KM, map_js)
         
@@ -230,16 +230,17 @@ def update_dashboard(event=None):
         kernel = gaussian_kde(values)
         
         raw_kde_density = kernel(values)
-        # Normalize and multiply color & probability intensity by 100%
-        kde_scaled = (raw_kde_density / raw_kde_density.max()) * 100.0
+        
+        # Normalize to 0-1 range and multiply by scalar 100
+        kde_scaled = (raw_kde_density / raw_kde_density.max()) * 100
         
         heat_points = []
         for idx in range(len(all_lons_flat)):
             lat_val = all_lats_flat[idx]
             lon_val = all_lons_flat[idx]
-            # Multiply color factor by 100% scale
-            prob_weight = float(min(kde_scaled[idx], 100.0))
-            heat_points.append([lat_val, lon_val, prob_weight])
+            # Weight multiplied by 100 scalar
+            weight_val = float(min(kde_scaled[idx], 100.0))
+            heat_points.append([lat_val, lon_val, weight_val])
 
         heat_layer = L.heatLayer(
             to_js(heat_points),
