@@ -21,20 +21,15 @@
     <style type="text/tailwindcss"> 
         @layer utilities { 
             .model-card { @apply bg-slate-900 rounded-xl shadow-lg border border-slate-800 overflow-hidden; } 
-            .nav-link { @apply px-4 py-3 text-slate-200 hover:text-white hover:bg-sky-600/30 text-sm font-medium transition-all duration-200 rounded-md whitespace-nowrap; } 
         } 
-        body {  
-            background-color: #0b0f19;  
-            color: #f1f5f9; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;  
-        }  
+        body { background-color: #0b0f19; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }  
     </style> 
 
     <!-- PyScript CSS & JS -->
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
 
-    <!-- Configure PyScript Packages (Folium) -->
+    <!-- Configure PyScript Packages -->
     <py-config>
         packages = ["folium"]
     </py-config>
@@ -64,7 +59,7 @@
     <main class="container mx-auto px-4 py-6 flex-grow"> 
         <div class="text-center mb-6"> 
             <h2 class="text-2xl md:text-3xl font-bold text-white mb-1">戶外濕球黑球溫度 (WBGT) 實況監測</h2> 
-            <p class="text-sky-400 text-sm font-medium mt-1">使用 Python Folium + `pyfetch` 即時讀取香港天文台氣溫及相對濕度高精度 CSV 數據</p> 
+            <p class="text-sky-400 text-sm font-medium mt-1">使用 Python Folium + `pyfetch` 讀取香港天文台即時 API 數據</p> 
         </div> 
 
         <div class="model-card p-4 relative"> 
@@ -72,16 +67,13 @@
                 正在初始化 Python 環境並安裝 Folium 套件... 
             </div> 
 
-            <!-- Map Container for Folium --> 
             <div id="map-container" class="w-full h-[600px] rounded-lg border border-slate-800 bg-slate-950 overflow-hidden"></div> 
         </div> 
     </main> 
 
-    <!-- PyScript Data Engine -->
+    <!-- PyScript Engine -->
     <script type="py">
 import math
-import csv
-import io
 import asyncio
 from datetime import datetime
 from pyodide.http import pyfetch
@@ -94,7 +86,6 @@ STATIONS = {
     "Cheung Chau": [22.2011, 114.0267],
     "Clear Water Bay": [22.2878, 114.2858],
     "Happy Valley": [22.2683, 114.1836],
-    "HK Observatory": [22.3006, 114.1742],
     "Hong Kong Observatory": [22.3006, 114.1742],
     "HK Park": [22.2783, 114.1586],
     "Kai Tak Runway Park": [22.3047, 114.2169],
@@ -132,11 +123,10 @@ STATIONS = {
     "Yuen Long Park": [22.4419, 114.0183]
 }
 
-TEMP_CSV_URL = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_temperature.csv"
-RH_CSV_URL = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_humidity.csv"
+# Native CORS-enabled Open Data API Endpoint
+HKO_API_URL = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=en"
 
 def calculate_outdoor_wbgt(temp_c, rh):
-    # Australian Bureau of Meteorology outdoor WBGT approximation formula
     vp = (rh / 100.0) * 6.105 * math.exp((17.27 * temp_c) / (237.7 + temp_c))
     wbgt = (0.567 * temp_c) + (0.393 * vp) + 3.94
     return round(wbgt, 2)
@@ -150,35 +140,26 @@ def get_wbgt_color(wbgt):
     elif wbgt >= 29.0: return "#FACC15"
     return "#10B981"
 
-async def fetch_csv_data(url):
-    response = await pyfetch(url)
-    csv_text = await response.string()
-    csv_reader = csv.reader(io.StringIO(csv_text))
-    next(csv_reader, None)  # Skip header row
-    
-    data = {}
-    for row in csv_reader:
-        if len(row) >= 3:
-            station_name = row[1].strip()
-            value_str = row[2].strip()
-            if value_str:
-                try:
-                    data[station_name] = float(value_str)
-                except ValueError:
-                    pass
-    return data
-
 async def generate_folium_map():
     status_div = document.getElementById("status")
     try:
-        status_div.innerHTML = '<span class="text-sky-400 animate-pulse">正在同步讀取即時氣溫及相對濕度 CSV...</span>'
+        status_div.innerHTML = '<span class="text-sky-400 animate-pulse">正在讀取香港天文台即時 API 數據...</span>'
         
-        # Concurrently fetch Temperature and Relative Humidity CSVs
-        temp_data, rh_data = await asyncio.gather(
-            fetch_csv_data(TEMP_CSV_URL),
-            fetch_csv_data(RH_CSV_URL)
-        )
+        response = await pyfetch(HKO_API_URL)
+        data = await response.json()
         
+        # Parse Temperatures
+        temp_data = {}
+        for item in data.get("temperature", {}).get("data", []):
+            temp_data[item.get("place")] = float(item.get("value"))
+
+        # Parse Relative Humidity
+        rh_data = {}
+        for item in data.get("humidity", {}).get("data", []):
+            rh_data[item.get("place")] = float(item.get("value"))
+            
+        default_rh = float(data.get("humidity", {}).get("data", [{}])[0].get("value", 75))
+
         m = folium.Map(
             location=[22.3527, 114.1272],
             zoom_start=11,
@@ -188,8 +169,7 @@ async def generate_folium_map():
         count = 0
         for station_name, temp_c in temp_data.items():
             if station_name in STATIONS:
-                # Use real-time RH if available, otherwise default to 75.0%
-                rh_val = rh_data.get(station_name, 75.0)
+                rh_val = rh_data.get(station_name, default_rh)
                 lat, lon = STATIONS[station_name]
                 
                 wbgt = calculate_outdoor_wbgt(temp_c, rh_val)
@@ -208,7 +188,7 @@ async def generate_folium_map():
                     location=[lat, lon],
                     radius=10,
                     popup=folium.Popup(popup_html, max_width=220),
-                    tooltip=f"{station_name}: WBGT {wbgt:.2f}°C (濕度 {rh_val:.0f}%)",
+                    tooltip=f"{station_name}: WBGT {wbgt:.2f}°C",
                     color="#0f172a",
                     weight=2,
                     fill=True,
@@ -228,7 +208,6 @@ async def generate_folium_map():
     except Exception as e:
         status_div.innerHTML = f'<span class="text-red-400">地圖生成失敗: {str(e)}</span>'
 
-# Correctly schedule the coroutine on PyScript event loop
 asyncio.create_task(generate_folium_map())
     </script>
 </body> 
