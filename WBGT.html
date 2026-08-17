@@ -123,7 +123,9 @@ STATIONS = {
 }
 
 # CORS Proxy appended to bypass cross-origin browser blocking
-CORS_PROXY = "https://corsproxy.io/?"
+# Option A: AllOrigins Raw Proxy (Recommended for GitHub Pages)
+CORS_PROXY = "https://api.allorigins.win/raw?url="
+
 TEMP_CSV_URL = CORS_PROXY + "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_temperature.csv"
 RH_CSV_URL   = CORS_PROXY + "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_humidity.csv"
 
