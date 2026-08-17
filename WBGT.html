@@ -124,10 +124,11 @@ STATIONS = {
 
 # CORS Proxy appended to bypass cross-origin browser blocking
 # Option A: AllOrigins Raw Proxy (Recommended for GitHub Pages)
-CORS_PROXY = "https://api.allorigins.win/raw?url="
+def get_proxy_url(target_url):
+    return "https://api.allorigins.win/raw?url=" + urllib.parse.quote(target_url, safe='')
 
-TEMP_CSV_URL = CORS_PROXY + "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_temperature.csv"
-RH_CSV_URL   = CORS_PROXY + "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_humidity.csv"
+TEMP_CSV_URL = get_proxy_url("https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_temperature.csv")
+RH_CSV_URL   = get_proxy_url("https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_humidity.csv")
 
 def calculate_outdoor_wbgt(temp_c, rh):
     vp = (rh / 100.0) * 6.105 * math.exp((17.27 * temp_c) / (237.7 + temp_c))
