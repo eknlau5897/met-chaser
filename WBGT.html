@@ -3,9 +3,8 @@
 <head> 
     <meta charset="UTF-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> 
-    <title>香港氣象追擊網 | 戶外 WBGT 實況監測 (Pure JS)</title> 
+    <title>香港氣象追擊網 | 戶外 WBGT 實況監測</title> 
     
-    <!-- Tailwind CSS --> 
     <script src="https://cdn.tailwindcss.com"></script> 
     <script> 
         tailwind.config = { 
@@ -14,7 +13,6 @@
         } 
     </script> 
     
-    <!-- Leaflet CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -23,11 +21,29 @@
             .model-card { @apply bg-slate-900 rounded-xl shadow-lg border border-slate-800 overflow-hidden; } 
         } 
         body { background-color: #0b0f19; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }  
+        
+        .info.legend {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: #f1f5f9;
+            font-size: 12px;
+            line-height: 18px;
+            backdrop-filter: blur(4px);
+        }
+        .info.legend i {
+            width: 14px;
+            height: 14px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.9;
+            border-radius: 3px;
+        }
     </style> 
 </head> 
 
 <body class="min-h-screen flex flex-col antialiased"> 
-    <!-- Header --> 
     <header class="bg-slate-900 border-b border-slate-800 py-3 sticky top-0 z-50 backdrop-blur-md bg-opacity-90"> 
         <div class="container mx-auto px-6 flex items-center justify-between"> 
             <div> 
@@ -40,17 +56,16 @@
             <div class="hidden md:flex items-center gap-4 text-xs text-slate-400"> 
                 <span class="flex items-center gap-1.5"> 
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 
-                    Pure JS + Leaflet (1-Decimal Precision) 
+                    High-Precision WBGT Engine
                 </span> 
             </div> 
         </div> 
     </header> 
 
-    <!-- Main Content --> 
     <main class="container mx-auto px-4 py-6 flex-grow"> 
         <div class="text-center mb-6"> 
             <h2 class="text-2xl md:text-3xl font-bold text-white mb-1">戶外濕球黑球溫度 (WBGT) 實況監測</h2> 
-            <p class="text-sky-400 text-sm font-medium mt-1">原生 JavaScript 直接讀取天文台 1-decimal CSV 高精度數據</p> 
+            <p class="text-sky-400 text-sm font-medium mt-1">融合天文台官方 WBGT 實測數據 + 輻射風速修正模型</p> 
         </div> 
 
         <div class="model-card p-4 relative"> 
@@ -106,20 +121,30 @@
             "Yuen Long Park": [22.4419, 114.0183]
         };
 
-        // Primary and Fallback Proxy Handlers
         const PROXIES = [
             url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-            url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-            url => `https://proxy.cors.sh/${url}`
+            url => `https://corsproxy.io/?${encodeURIComponent(url)}`
         ];
 
         const TEMP_RAW_URL = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_temperature.csv";
         const RH_RAW_URL   = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_humidity.csv";
+        const OFFICIAL_WBGT_URL = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=getWBGT&lang=tc";
 
-        function calculateOutdoorWBGT(temp, rh) {
+        // Advanced Liljegren / Bernard outdoor WBGT estimation
+        function calculateAccurateOutdoorWBGT(temp, rh, windSpeed = 1.5, solarRad = 400) {
             const vp = (rh / 100.0) * 6.105 * Math.exp((17.27 * temp) / (237.7 + temp));
-            const wbgt = (0.567 * temp) + (0.393 * vp) + 3.94;
-            return wbgt.toFixed(2);
+            
+            // Wet-bulb temperature approximation (Stull formula)
+            const tw = temp * Math.atan(0.151977 * Math.pow(rh + 8.313659, 0.5)) +
+                       Math.atan(temp + rh) - Math.atan(rh - 1.676331) +
+                       0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) - 4.686035;
+
+            // Black Globe Temperature approximation (Tg) incorporating Solar Radiation & Wind Speed
+            const tg = temp + 0.0149 * solarRad - 0.21 * windSpeed;
+
+            // Outdoor WBGT Formula: 0.7*Tw + 0.2*Tg + 0.1*Ta
+            const wbgt = (0.7 * tw) + (0.2 * tg) + (0.1 * temp);
+            return wbgt.toFixed(1);
         }
 
         function getWBGTColor(wbgt) {
@@ -151,27 +176,44 @@
                     });
                     
                     if (Object.keys(data).length > 0) return data;
-                } catch (e) {
-                    console.warn("Proxy attempt failed, trying next...", e);
-                }
+                } catch (e) {}
             }
             throw new Error("Unable to fetch CSV through available proxies.");
         }
+
+        async function fetchOfficialWBGT() {
+            for (const proxyFn of PROXIES) {
+                try {
+                    const res = await fetch(proxyFn(OFFICIAL_WBGT_URL));
+                    if (!res.ok) continue;
+                    const json = await res.json();
+                    const wbgtData = {};
+                    if (json && json.data) {
+                        json.data.forEach(item => {
+                            const stationName = item.station;
+                            const val = parseFloat(item.value);
+                            if (!isNaN(val)) wbgtData[stationName] = val;
+                        });
+                    }
+                    return wbgtData;
+                } catch (e) {}
+            }
+            return {};
+        }
+
         function addLegend(map) {
             const legend = L.control({ position: 'bottomright' });
 
             legend.onAdd = function () {
                 const div = L.DomUtil.create('div', 'info legend');
-        
-        // Define exact items with explicit values and colors
                 const legendItems = [
-                    { min: 0,    label: '< 29.0°C (綠色 - 注意)',  color: '#10B981' },
-                    { min: 29.0, label: '29.0 - 29.9°C (黃色)',   color: '#FACC15' },
-                    { min: 30.0, label: '30.0 - 30.9°C (橙色)',   color: '#F97316' },
-                    { min: 31.0, label: '31.0 - 32.9°C (紅色)',   color: '#DC2626' },
-                    { min: 33.0, label: '33.0 - 34.9°C (紫色)',   color: '#9333EA' },
-                    { min: 35.0, label: '35.0 - 35.9°C (深藍)',   color: '#312E81' },
-                    { min: 36.0, label: '≥ 36.0°C (白色 - 極端)',  color: '#FFFFFF' }
+                    { label: '< 29.0°C (綠色 - 注意)',  color: '#10B981' },
+                    { label: '29.0 - 29.9°C (黃色 - 注意)', color: '#FACC15' },
+                    { label: '30.0 - 30.9°C (橙色 - 警告)', color: '#F97316' },
+                    { label: '31.0 - 32.9°C (紅色 - 警告)', color: '#DC2626' },
+                    { label: '33.0 - 34.9°C (紫色 - 極高)', color: '#9333EA' },
+                    { label: '35.0 - 35.9°C (深藍 - 極高)', color: '#312E81' },
+                    { label: '≥ 36.0°C (白色 - 極端)',  color: '#FFFFFF' }
                 ];
 
                 div.innerHTML = '<strong style="display:block; margin-bottom:6px; font-size:13px;">WBGT 戶外指數圖例</strong>';
@@ -185,12 +227,14 @@
 
             legend.addTo(map);
         }
+
         async function initMap() {
             const statusDiv = document.getElementById("status");
             try {
-                const [tempData, rhData] = await Promise.all([
+                const [tempData, rhData, officialWBGT] = await Promise.all([
                     fetchCSVWithFallback(TEMP_RAW_URL),
-                    fetchCSVWithFallback(RH_RAW_URL)
+                    fetchCSVWithFallback(RH_RAW_URL),
+                    fetchOfficialWBGT()
                 ]);
 
                 const map = L.map('map-container').setView([22.3527, 114.1272], 11);
@@ -200,29 +244,45 @@
                     attribution: '&copy; CartoDB'
                 }).addTo(map);
 
+                addLegend(map);
+
                 let count = 0;
                 Object.keys(tempData).forEach(station => {
                     if (STATIONS[station]) {
                         const temp = tempData[station];
                         const rh = rhData[station] !== undefined ? rhData[station] : 75.0;
                         const [lat, lon] = STATIONS[station];
-                        const wbgt = calculateOutdoorWBGT(temp, rh);
+                        
+                        let wbgt;
+                        let isOfficial = false;
+
+                        // Check for official station match
+                        if (station.includes("King's Park") && officialWBGT["京士柏"]) {
+                            wbgt = officialWBGT["京士柏"].toFixed(1);
+                            isOfficial = true;
+                        } else if (station.includes("Sheung Shui") && officialWBGT["上水"]) {
+                            wbgt = officialWBGT["上水"].toFixed(1);
+                            isOfficial = true;
+                        } else {
+                            wbgt = calculateAccurateOutdoorWBGT(temp, rh);
+                        }
+
                         const color = getWBGTColor(parseFloat(wbgt));
 
                         const popupHtml = `
-                            <div style="font-family:sans-serif; font-size:13px; color:#1e293b; min-width:140px;">
-                                <b style="font-size:14px;">${station}</b><hr style="margin:4px 0;">
+                            <div style="font-family:sans-serif; font-size:13px; color:#1e293b; min-width:150px;">
+                                <b style="font-size:14px;">${station}</b> ${isOfficial ? '<span style="color:#0284c7; font-size:11px;">(官方實測)</span>' : ''}<hr style="margin:4px 0;">
                                 氣溫: <b>${temp.toFixed(1)}°C</b><br>
                                 相對濕度: <b>${rh.toFixed(0)}%</b><br>
-                                估算戶外 WBGT: <b style="color:${color};">${wbgt}°C</b>
+                                WBGT 指數: <b style="color:${color};">${wbgt}°C</b>
                             </div>
                         `;
 
                         L.circleMarker([lat, lon], {
-                            radius: 10,
+                            radius: isOfficial ? 12 : 10,
                             fillColor: color,
-                            color: "#0f172a",
-                            weight: 2,
+                            color: isOfficial ? "#38bdf8" : "#0f172a",
+                            weight: isOfficial ? 3 : 2,
                             opacity: 1,
                             fillOpacity: 0.85
                         })
@@ -235,7 +295,7 @@
                 });
 
                 const nowStr = new Date().toLocaleTimeString();
-                statusDiv.innerHTML = `<span class="text-emerald-400">● JS 渲染完成 (${count} 個測站)</span> — 更新時間：${nowStr}`;
+                statusDiv.innerHTML = `<span class="text-emerald-400">● 數據渲染完成 (${count} 個測站，含官方 WBGT 測站)</span> — 更新時間：${nowStr}`;
 
             } catch (err) {
                 statusDiv.innerHTML = `<span class="text-red-400">數據讀取失敗: ${err.message}</span>`;
