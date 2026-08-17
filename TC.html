@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PyScript Custom Forecast Builder</title>
+    <title>PyScript Interactive Direct-Edit Forecast Builder</title>
 
     <!-- PyScript Core -->
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
@@ -15,7 +15,7 @@
 
     <style>
         html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, -apple-system, sans-serif; }
-        #map { width: 100vw; height: 100vh; background: #0b0f19; }
+        #map { width: 100vw; height: 100vh; background: #0b0f19; cursor: crosshair; }
         
         #control-panel {
             position: absolute;
@@ -26,7 +26,7 @@
             color: #f8fafc;
             padding: 18px;
             border-radius: 12px;
-            width: 360px;
+            width: 340px;
             max-height: 90vh;
             overflow-y: auto;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
@@ -49,7 +49,7 @@
         .control-group { margin-bottom: 12px; }
         label { font-size: 12px; color: #94a3b8; font-weight: 600; display: block; margin-bottom: 4px; }
         
-        input[type="text"], input[type="file"], select {
+        input[type="text"], input[type="file"] {
             width: 100%;
             padding: 8px;
             background: #1e293b;
@@ -80,37 +80,14 @@
         .btn-danger { background: #dc2626; }
         .btn-danger:hover { background: #b91c1c; }
 
-        .table-container {
-            margin-top: 10px;
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid #475569;
-            border-radius: 6px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        .hint-box {
+            background: rgba(56, 189, 248, 0.1);
+            border-left: 3px solid #38bdf8;
+            padding: 8px;
             font-size: 11px;
-            color: #f8fafc;
-        }
-
-        th, td {
-            padding: 6px;
-            text-align: center;
-            border-bottom: 1px solid #334155;
-        }
-
-        th { background: #1e293b; color: #38bdf8; position: sticky; top: 0; }
-
-        .waypoint-input {
-            width: 50px;
-            padding: 2px 4px;
-            background: #0f172a;
-            color: #fff;
-            border: 1px solid #475569;
-            border-radius: 4px;
-            text-align: center;
+            color: #cbd5e1;
+            margin-bottom: 12px;
+            border-radius: 0 4px 4px 0;
         }
     </style>
 
@@ -122,47 +99,27 @@
 
 <div id="control-panel">
     <div class="panel-title">
-        <span>🌀 CUSTOM FORECAST BUILDER</span>
-        <span style="font-size: 10px; background: #0284c7; padding: 2px 6px; border-radius: 4px;">EDITOR</span>
+        <span>🌀 DIRECT TRACK BUILDER</span>
+        <span style="font-size: 10px; background: #0284c7; padding: 2px 6px; border-radius: 4px;">INTERACTIVE</span>
     </div>
 
-    <!-- Storm Metadata -->
+    <div class="hint-box">
+        • <b>Click map</b> to append waypoints.<br>
+        • <b>Drag points</b> to move coordinates.<br>
+        • <b>Click waypoint</b> to delete it.
+    </div>
+
+    <!-- Metadata -->
     <div class="control-group">
         <label for="stormName">SYSTEM NAME / ID:</label>
-        <input type="text" id="stormName" value="Custom Forecast System" py-change="render_forecast">
+        <input type="text" id="stormName" value="Custom Direct Track" py-change="render_map">
     </div>
 
-    <!-- Data Import/Export -->
-    <div class="control-group" style="background: #1e293b; padding: 10px; border-radius: 6px; border: 1px solid #475569;">
-        <label style="color:#38bdf8;">CSV FILE ENGINE:</label>
-        <input type="file" id="csvFileInput" accept=".csv, .tsv, .txt" py-change="load_csv">
-        <button class="btn" style="background:#059669; margin-top:8px;" py-click="export_csv">💾 Export Track to CSV</button>
-    </div>
-
-    <!-- Interactive Track Editor Table -->
+    <!-- Actions -->
     <div class="control-group">
-        <label>FORECAST WAYPOINTS:</label>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Hour</th>
-                        <th>Lat (°N)</th>
-                        <th>Lon (°E)</th>
-                        <th>MSLP (hPa)</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="waypointTableBody">
-                    <!-- Dynamic rows populated via Python -->
-                </tbody>
-            </table>
-        </div>
-        <button class="btn" py-click="add_waypoint">➕ Add Track Waypoint</button>
+        <button class="btn" style="background:#059669;" py-click="export_csv">💾 Export Track to CSV</button>
+        <button class="btn btn-danger" py-click="clear_all">🗑️ Clear Track</button>
     </div>
-
-    <!-- Clear Layer Control -->
-    <button class="btn btn-danger" py-click="reset_track">🗑️ Reset Track</button>
 </div>
 
 <div id="map"></div>
@@ -171,24 +128,20 @@
 import io
 import pandas as pd
 import numpy as np
-from js import document, L, FileReader, Blob, URL
+from js import document, L, Blob, URL
 from pyodide.ffi import to_js, create_proxy
 
-# Initial default forecast dataset
-default_data = [
+# Initialize Python Data Structures
+waypoints = [
     {"hour": 0, "lat": 18.0, "lon": 120.0, "mslp": 1004.0},
     {"hour": 12, "lat": 18.8, "lon": 118.5, "mslp": 1000.0},
     {"hour": 24, "lat": 19.6, "lon": 117.1, "mslp": 994.0},
     {"hour": 36, "lat": 20.5, "lon": 115.8, "mslp": 988.0},
-    {"hour": 48, "lat": 21.3, "lon": 114.5, "mslp": 980.0},
-    {"hour": 72, "lat": 22.2, "lon": 113.2, "mslp": 972.0}
+    {"hour": 48, "lat": 21.3, "lon": 114.5, "mslp": 980.0}
 ]
 
-df = pd.DataFrame(default_data)
-
 # Initialize Leaflet Map
-map_center = L.latLng(float(df['lat'].mean()), float(df['lon'].mean()))
-map_js = L.map('map', to_js({'zoomControl': False})).setView(map_center, 6)
+map_js = L.map('map', to_js({'zoomControl': False})).setView(L.latLng(19.5, 117.0), 6)
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     'maxZoom': 18,
@@ -199,162 +152,103 @@ L.control.zoom(to_js({'position': 'topright'})).addTo(map_js)
 
 active_layers = []
 
-# Main render function for map features
-def render_forecast(event=None):
-    global active_layers, df
+def render_map(event=None):
+    global active_layers, waypoints
     
-    # Clear map layers
+    # Clear existing map layers
     for layer in active_layers:
         map_js.removeLayer(layer)
     active_layers.clear()
 
-    storm_title = document.getElementById("stormName").value
-
-    if df.empty:
-        update_table_ui()
+    if not waypoints:
         return
 
-    # Sort track chronologically by forecast hour
-    df.sort_values(by="hour", inplace=True)
-    df.reset_index(drop=True, inplace=True)
+    storm_title = document.getElementById("stormName").value
 
-    # 1. Draw Polyline Track Vector
-    track_coords = df[['lat', 'lon']].values.tolist()
-    polyline = L.polyline(to_js(track_coords), to_js({
+    # Re-calculate forecast hours linearly based on sequence
+    for idx, wp in enumerate(waypoints):
+        wp["hour"] = idx * 12
+
+    # 1. Polyline Vector
+    coords = [[wp["lat"], wp["lon"]] for wp in waypoints]
+    polyline = L.polyline(to_js(coords), to_js({
         'color': '#38bdf8',
-        'weight': 4,
+        'weight': 3,
         'dashArray': '6, 6',
         'opacity': 0.85
     })).addTo(map_js)
     active_layers.append(polyline)
 
-    # 2. Draw Waypoint Markers
-    for idx, row in df.iterrows():
-        lat_val = float(row['lat'])
-        lon_val = float(row['lon'])
-        hour_val = int(row['hour'])
-        mslp_val = float(row['mslp'])
-
-        # Color intensity based on pressure
-        color_hex = '#ef4444' if mslp_val < 980 else ('#f59e0b' if mslp_val < 1000 else '#38bdf8')
-
-        marker = L.circleMarker(L.latLng(lat_val, lon_val), to_js({
-            'radius': 7 if idx == 0 else 5,
-            'fillColor': color_hex,
-            'color': '#ffffff',
-            'weight': 1.5,
-            'fillOpacity': 0.95
+    # 2. Interactive Markers
+    for idx, wp in enumerate(waypoints):
+        marker = L.marker(L.latLng(wp["lat"], wp["lon"]), to_js({
+            'draggable': True
         })).addTo(map_js)
 
+        # Popup Info
         marker.bindPopup(f"""
             <div style="font-size:12px; font-family:sans-serif;">
                 <b>{storm_title}</b><br>
-                Lead Time: <b>+{hour_val}h</b><br>
-                Position: <b>{lat_val:.1f}°N, {lon_val:.1f}°E</b><br>
-                Intensity: <b>{mslp_val:.1f} hPa</b>
+                Hour: <b>+{wp['hour']}h</b><br>
+                Pos: <b>{wp['lat']:.2f}°N, {wp['lon']:.2f}°E</b><br>
+                <i style="color:#94a3b8;">Click marker again to delete</i>
             </div>
         """)
+
+        # Marker Drag Binding
+        def make_drag_handler(i):
+            def on_drag_end(e):
+                latlng = e.target.getLatLng()
+                waypoints[i]["lat"] = float(latlng.lat)
+                waypoints[i]["lon"] = float(latlng.lng)
+                render_map()
+            return create_proxy(on_drag_end)
+
+        # Marker Delete Binding (click event)
+        def make_click_handler(i):
+            def on_click(e):
+                waypoints.pop(i)
+                render_map()
+            return create_proxy(on_click)
+
+        marker.on('dragend', make_drag_handler(idx))
+        marker.on('click', make_click_handler(idx))
+
         active_layers.append(marker)
 
-    update_table_ui()
+# Map Click Listener to add new Waypoints dynamically
+def on_map_click(e):
+    lat = float(e.latlng.lat)
+    lon = float(e.latlng.lng)
+    
+    waypoints.append({
+        "hour": len(waypoints) * 12,
+        "lat": lat,
+        "lon": lon,
+        "mslp": 1000.0
+    })
+    render_map()
 
-# Rebuild UI table inputs dynamically
-def update_table_ui():
-    tbody = document.getElementById("waypointTableBody")
-    tbody.innerHTML = ""
+map_js.on('click', create_proxy(on_map_click))
 
-    for idx, row in df.iterrows():
-        tr = document.createElement("tr")
-        tr.innerHTML = f"""
-            <td><input type="number" class="waypoint-input" value="{int(row['hour'])}" onchange="py_update_row({idx}, 'hour', this.value)"></td>
-            <td><input type="number" step="0.1" class="waypoint-input" value="{float(row['lat'])}" onchange="py_update_row({idx}, 'lat', this.value)"></td>
-            <td><input type="number" step="0.1" class="waypoint-input" value="{float(row['lon'])}" onchange="py_update_row({idx}, 'lon', this.value)"></td>
-            <td><input type="number" step="1" class="waypoint-input" value="{float(row['mslp'])}" onchange="py_update_row({idx}, 'mslp', this.value)"></td>
-            <td><button style="background:none; border:none; color:#ef4444; cursor:pointer;" onclick="py_delete_row({idx})">❌</button></td>
-        """
-        tbody.appendChild(tr)
-
-# Row edit/delete bindings exposed to DOM
-def update_row_val(index, field, value):
-    global df
-    try:
-        df.at[index, field] = float(value)
-        render_forecast()
-    except Exception as e:
-        pass
-
-def delete_row_idx(index):
-    global df
-    df.drop(index, inplace=True)
-    df.reset_index(drop=True, inplace=True)
-    render_forecast()
-
-# Register global window functions for inline table events
-import js
-js.py_update_row = create_proxy(update_row_val)
-js.py_delete_row = create_proxy(delete_row_idx)
-
-# Button Callback actions
-def add_waypoint(event=None):
-    global df
-    last_hour = int(df['hour'].max()) + 12 if not df.empty else 0
-    last_lat = float(df['lat'].iloc[-1]) + 0.5 if not df.empty else 20.0
-    last_lon = float(df['lon'].iloc[-1]) - 0.5 if not df.empty else 115.0
-    last_mslp = float(df['mslp'].iloc[-1]) if not df.empty else 1000.0
-
-    new_row = pd.DataFrame([{"hour": last_hour, "lat": last_lat, "lon": last_lon, "mslp": last_mslp}])
-    df = pd.concat([df, new_row], ignore_index=True)
-    render_forecast()
-
-def reset_track(event=None):
-    global df
-    df = pd.DataFrame(columns=["hour", "lat", "lon", "mslp"])
-    render_forecast()
-
-# CSV Ingestion & Exporting
-def process_file_content(event):
-    global df
-    content = event.target.result
-    try:
-        loaded_df = pd.read_csv(io.StringIO(content))
-        # Standardize column mapping
-        loaded_df.columns = [c.lower().strip() for c in loaded_df.columns]
-        
-        # Map MSLP / pressure column variants
-        if 'pressure' in loaded_df.columns and 'mslp' not in loaded_df.columns:
-            loaded_df.rename(columns={'pressure': 'mslp'}, inplace=True)
-        elif 'pressurereducedtomeansealevel' in loaded_df.columns:
-            loaded_df['mslp'] = loaded_df['pressurereducedtomeansealevel'] / 100.0
-
-        required = {'hour', 'lat', 'lon', 'mslp'}
-        if required.issubset(set(loaded_df.columns)):
-            df = loaded_df[['hour', 'lat', 'lon', 'mslp']].copy()
-            map_js.setView(L.latLng(df['lat'].mean(), df['lon'].mean()), 6)
-            render_forecast()
-    except Exception as e:
-        print("CSV Load Error:", e)
-
-def load_csv(event):
-    file_list = event.target.files
-    if file_list.length > 0:
-        file = file_list.item(0)
-        reader = FileReader.new()
-        onload_proxy = create_proxy(process_file_content)
-        reader.onload = onload_proxy
-        reader.readAsText(file)
+def clear_all(event=None):
+    global waypoints
+    waypoints = []
+    render_map()
 
 def export_csv(event=None):
+    df = pd.DataFrame(waypoints)
     csv_str = df.to_csv(index=False)
     blob = Blob.new([csv_str], to_js({'type': 'text/csv'}))
     url = URL.createObjectURL(blob)
     
     a = document.createElement('a')
     a.href = url
-    a.download = f"custom_forecast_track.csv"
+    a.download = f"custom_track.csv"
     a.click()
 
-# Initial render execution
-render_forecast()
+# Initial render
+render_map()
 </script>
 
 </body>
