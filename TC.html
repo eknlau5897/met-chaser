@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PyScript Tropycal Dashboard - Invest WP952026</title>
+    <title>PyScript Tropycal Dashboard - Invest 95W</title>
 
     <!-- PyScript Core -->
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
@@ -29,7 +29,7 @@
             color: #f8fafc;
             padding: 18px;
             border-radius: 12px;
-            width: 320px;
+            width: 330px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             border: 1px solid rgba(255, 255, 255, 0.12);
             backdrop-filter: blur(8px);
@@ -96,19 +96,19 @@
 
 <div id="control-panel">
     <div class="panel-title">
-        <span>🌀 TROPYCAL WP952026</span>
-        <span style="font-size: 10px; background: #0284c7; padding: 2px 6px; border-radius: 4px;">ACTIVE WP</span>
+        <span>🌀 TROPYCAL REAL-TIME 95W</span>
+        <span style="font-size: 10px; background: #0284c7; padding: 2px 6px; border-radius: 4px;">LIVE FIX</span>
     </div>
 
-    <!-- Active System Identification -->
+    <!-- System Info -->
     <div class="control-group">
-        <label for="stormSelect">SELECT WP SYSTEM:</label>
+        <label for="stormSelect">SELECT SYSTEM:</label>
         <select id="stormSelect" py-change="update_dashboard">
-            <option value="WP952026" selected>Invest WP952026 (16.6°N, 120.1°E)</option>
+            <option value="95W" selected>Invest 95W (South China Sea / WNP)</option>
         </select>
     </div>
 
-    <!-- Ensemble Model Options -->
+    <!-- Ensemble Controls -->
     <div class="control-group" style="background: #1e293b; padding: 10px; border-radius: 6px; border: 1px solid #475569;">
         <label style="color:#38bdf8; margin-bottom: 6px;">ENSEMBLE MODEL:</label>
         <select id="modelSelect" py-change="update_dashboard">
@@ -133,9 +133,9 @@
         </label>
     </div>
 
-    <!-- Embedded Heatmap Color Legend -->
+    <!-- Legend -->
     <div class="legend">
-        <span>Strike Probability Scale (150 km Radius, 100% Boost)</span>
+        <span>Strike Probability Scale (150 km Radius, Scaled 100%)</span>
         <div class="legend-bar"></div>
         <div class="legend-labels">
             <span>10%</span>
@@ -153,21 +153,19 @@ from scipy.stats import gaussian_kde
 from js import document, L
 from pyodide.ffi import to_js
 
-# Fixed Strike Probability Radius set to 150 km
 FIXED_RADIUS_KM = 150.0
 
-# WP952026 Track Dataset
+# Latest Invest 95W Position & Forecast Mean
 storm_data = {
-    "name": "Invest WP952026",
-    "id": "WP952026",
-    "lat": 16.6, "lon": 120.1,
-    "observed": [[16.7, 120.0], [16.6, 120.2], [16.6, 120.1]],
-    "forecast_mean": [[16.6, 120.1], [17.4, 119.2], [18.5, 118.0], [19.8, 116.5], [21.2, 114.8]],
-    "seeds": {"gefs": 9520, "eceps": 7712, "cmeps": 3341},
+    "name": "Invest 95W",
+    "id": "95W",
+    "lat": 19.5, "lon": 116.8,  # SCS / SE of Hong Kong Basin position
+    "observed": [[18.2, 118.5], [18.9, 117.6], [19.5, 116.8]],
+    "forecast_mean": [[19.5, 116.8], [20.2, 115.8], [21.0, 114.7], [21.8, 113.5], [22.4, 112.1]],
+    "seeds": {"gefs": 9511, "eceps": 7789, "cmeps": 3312},
     "counts": {"gefs": 30, "eceps": 50, "cmeps": 20}
 }
 
-# Generate Ensemble Track Coordinates using Python Math Engine
 def compute_ensemble_coords(model="gefs"):
     seed = storm_data["seeds"][model]
     num_members = storm_data["counts"][model]
@@ -180,10 +178,10 @@ def compute_ensemble_coords(model="gefs"):
     member_lons, member_lats = [], []
     
     for i in range(num_members):
-        lon_noise = np.random.normal(0, 0.35, size=len(lons)).cumsum()
-        lat_noise = np.random.normal(0, 0.35, size=len(lats)).cumsum()
+        lon_noise = np.random.normal(0, 0.3, size=len(lons)).cumsum()
+        lat_noise = np.random.normal(0, 0.3, size=len(lats)).cumsum()
         
-        m_lon = lons + lon_noise + (i - num_members/2) * 0.08
+        m_lon = lons + lon_noise + (i - num_members/2) * 0.06
         m_lat = lats + lat_noise
         
         member_lons.append(m_lon)
@@ -191,12 +189,10 @@ def compute_ensemble_coords(model="gefs"):
 
     return member_lons, member_lats
 
-# Function to calculate pixel radius dynamically for a physical distance (150 km)
 def get_pixel_radius(lat, radius_km, map_obj):
     meters_per_pixel = 156543.03392 * np.cos(np.radians(lat)) / (2 ** map_obj.getZoom())
     return (radius_km * 1000.0) / meters_per_pixel
 
-# Initialize Native Leaflet Web Map
 map_center = L.latLng(storm_data["lat"], storm_data["lon"])
 map_js = L.map('map', to_js({'zoomControl': False})).setView(map_center, 6)
 
@@ -209,52 +205,47 @@ L.control.zoom(to_js({'position': 'topright'})).addTo(map_js)
 
 active_layers = []
 
-# Main Update Callback Function
 def update_dashboard(event=None):
     global active_layers
     
-    # Extract DOM inputs
     model_choice = document.getElementById("modelSelect").value
     show_heatmap = document.getElementById("toggleHeatmap").checked
     show_spaghetti = document.getElementById("toggleSpaghetti").checked
     show_mean = document.getElementById("toggleMean").checked
 
-    # Clear old Leaflet map layers
     for layer in active_layers:
         map_js.removeLayer(layer)
     active_layers.clear()
 
-    # Calculate ensemble coordinates using Python backend
     m_lons, m_lats = compute_ensemble_coords(model=model_choice)
 
-    # 1. Heatmap layer calibrated to 150 km with KDE probability intensity scaled by 100%
+    # 1. Heatmap layer with probability multiplied by 100%
     if show_heatmap:
         pixel_radius = get_pixel_radius(storm_data["lat"], FIXED_RADIUS_KM, map_js)
         
         all_lons_flat = np.concatenate(m_lons)
         all_lats_flat = np.concatenate(m_lats)
         
-        # Fit 2D Gaussian KDE across ensemble points
         values = np.vstack([all_lons_flat, all_lats_flat])
         kernel = gaussian_kde(values)
         
-        # Evaluate raw KDE probability density and multiply by 100 (%)
         raw_kde_density = kernel(values)
+        # Normalize and multiply color & probability intensity by 100%
         kde_scaled = (raw_kde_density / raw_kde_density.max()) * 100.0
         
         heat_points = []
         for idx in range(len(all_lons_flat)):
             lat_val = all_lats_flat[idx]
             lon_val = all_lons_flat[idx]
-            # Multiply weight by 100% scaling factor (ensures high color intensity saturation)
-            prob_weight = float(min((kde_scaled[idx] / 100.0) * 100.0, 100.0))
+            # Multiply color factor by 100% scale
+            prob_weight = float(min(kde_scaled[idx], 100.0))
             heat_points.append([lat_val, lon_val, prob_weight])
 
         heat_layer = L.heatLayer(
             to_js(heat_points),
             to_js({
                 'radius': pixel_radius,
-                'blur': pixel_radius * 0.65,
+                'blur': pixel_radius * 0.6,
                 'maxZoom': 10,
                 'max': 100.0,
                 'gradient': {
@@ -268,17 +259,17 @@ def update_dashboard(event=None):
         ).addTo(map_js)
         active_layers.append(heat_layer)
 
-    # 2. Interactive Spaghetti Track Lines
+    # 2. Ensemble Lines
     if show_spaghetti:
         for i in range(len(m_lons)):
             pts = [[m_lats[i][j], m_lons[i][j]] for j in range(len(m_lons[i]))]
-            line = L.polyline(to_js(pts), to_js({'color': '#a855f7', 'weight': 1.2, 'opacity': 0.35})).addTo(map_js)
+            line = L.polyline(to_js(pts), to_js({'color': '#c084fc', 'weight': 1.2, 'opacity': 0.4})).addTo(map_js)
             active_layers.append(line)
 
-    # 3. Track Vectors & Waypoint Markers
+    # 3. Forecast Track & Mean Line
     if show_mean:
         obs_js = to_js([[c[0], c[1]] for c in storm_data["observed"]])
-        obs_line = L.polyline(obs_js, to_js({'color': '#00f2fe', 'weight': 4, 'opacity': 0.9})).addTo(map_js)
+        obs_line = L.polyline(obs_js, to_js({'color': '#38bdf8', 'weight': 4, 'opacity': 0.9})).addTo(map_js)
         active_layers.append(obs_line)
 
         fct_js = to_js([[c[0], c[1]] for c in storm_data["forecast_mean"]])
@@ -291,7 +282,7 @@ def update_dashboard(event=None):
                 'fillColor': '#ef4444' if idx == 0 else '#f59e0b',
                 'color': '#ffffff',
                 'weight': 1.5,
-                'fillOpacity': 0.9
+                'fillOpacity': 0.95
             })).addTo(map_js)
             
             marker.bindPopup(f"""
@@ -305,10 +296,7 @@ def update_dashboard(event=None):
 
     map_js.flyTo(map_center, 6)
 
-# Handle dynamic re-scaling on zoom changes
 map_js.on('zoomend', to_js(lambda e: update_dashboard()))
-
-# Initial run
 update_dashboard()
 </script>
 
