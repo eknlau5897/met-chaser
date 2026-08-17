@@ -13,6 +13,9 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+    <!-- Leaflet Heatmap Plugin -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
     <style>
         html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, -apple-system, sans-serif; }
         #map { width: 100vw; height: 100vh; background: #0b0f19; }
@@ -47,7 +50,7 @@
         .control-group { margin-bottom: 12px; }
         label { font-size: 12px; color: #94a3b8; font-weight: 600; display: block; margin-bottom: 4px; }
         
-        select, input[type="number"] {
+        select, input[type="range"] {
             width: 100%;
             padding: 8px;
             background: #1e293b;
@@ -68,24 +71,25 @@
         }
         .checkbox-label input { margin-right: 8px; accent-color: #38bdf8; width: 16px; height: 16px; }
 
-        .image-overlay-card {
-            position: absolute;
-            bottom: 25px;
-            right: 25px;
-            z-index: 1000;
-            background: rgba(15, 23, 42, 0.95);
-            padding: 10px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-            width: 380px;
+        .legend {
+            margin-top: 10px;
+            background: rgba(30, 41, 59, 0.7);
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 11px;
         }
-        .image-overlay-card img { width: 100%; border-radius: 6px; display: block; }
+        .legend-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(to right, #0000ff, #00ffff, #00ff00, #ffff00, #ff0000);
+            margin-top: 4px;
+        }
+        .legend-labels { display: flex; justify-content: space-between; margin-top: 2px; color: #94a3b8; }
     </style>
 
-    <!-- Configure PyScript Python Engine -->
+    <!-- PyScript Engine Configuration for Python Kernel Analytics -->
     <py-config>
-        packages = ["matplotlib", "numpy", "scipy"]
+        packages = ["numpy", "scipy"]
     </py-config>
 </head>
 <body>
@@ -104,47 +108,58 @@
         </select>
     </div>
 
-    <!-- Tropycal Feature Mode Selector -->
+    <!-- Ensemble Model Options -->
     <div class="control-group" style="background: #1e293b; padding: 10px; border-radius: 6px; border: 1px solid #475569;">
-        <label style="color:#38bdf8; margin-bottom: 6px;">TROPYCAL FEATURE MODE:</label>
-        
-        <select id="modeSelect" py-change="update_dashboard">
-            <option value="strike_prob" selected>Strike Probability Density (KDE)</option>
-            <option value="plot_ensembles">plot_ensembles() Spaghetti</option>
-        </select>
-
-        <label for="modelSelect" style="margin-top: 8px;">ENSEMBLE MODEL:</label>
+        <label style="color:#38bdf8; margin-bottom: 6px;">ENSEMBLE MODEL:</label>
         <select id="modelSelect" py-change="update_dashboard">
-            <option value="gefs">GEFS (30 Members)</option>
+            <option value="gefs" selected>GEFS (30 Members)</option>
             <option value="eceps">ECEPS (50 Members)</option>
             <option value="cmeps">CMEPS (20 Members)</option>
         </select>
 
         <label class="checkbox-label">
-            <input type="checkbox" id="showMean" checked py-change="update_dashboard">
-            Highlight Ensemble Mean
+            <input type="checkbox" id="toggleHeatmap" checked py-change="update_dashboard">
+            Strike Probability Heatmap (KDE)
         </label>
+
+        <label class="checkbox-label">
+            <input type="checkbox" id="toggleSpaghetti" checked py-change="update_dashboard">
+            Ensemble Member Tracks
+        </label>
+
+        <label class="checkbox-label">
+            <input type="checkbox" id="toggleMean" checked py-change="update_dashboard">
+            Ensemble Mean & Track Markers
+        </label>
+    </div>
+
+    <!-- Probability Density Smoothing Radius -->
+    <div class="control-group">
+        <label for="radiusSlider">PROBABILITY BLUR RADIUS:</label>
+        <input type="range" id="radiusSlider" min="15" max="50" value="28" py-change="update_dashboard">
+    </div>
+
+    <!-- Embedded Heatmap Color Legend -->
+    <div class="legend">
+        <span>Strike Probability Density Scale</span>
+        <div class="legend-bar"></div>
+        <div class="legend-labels">
+            <span>Low (10%)</span>
+            <span>Moderate</span>
+            <span>High Density (100%)</span>
+        </div>
     </div>
 </div>
 
 <div id="map"></div>
 
-<!-- Floating Matplotlib Render Overlay Card -->
-<div class="image-overlay-card">
-    <div style="font-size: 11px; color: #94a3b8; font-weight: 700; margin-bottom: 6px;">TROPYCAL PYTHON DIAGNOSTIC OUTPUT</div>
-    <img id="tropycal-plot" src="" alt="Tropycal Plot Rendering...">
-</div>
-
 <script type="py">
-import base64
-from io import BytesIO
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import gaussian_kde
 from js import document, L
 from pyodide.ffi import to_js
 
-# WP952026 System Dataset
+# WP952026 Track Dataset
 storm_data = {
     "name": "Invest WP952026",
     "id": "WP952026",
@@ -155,10 +170,8 @@ storm_data = {
     "counts": {"gefs": 30, "eceps": 50, "cmeps": 20}
 }
 
-# Generate Tropycal Style Python Visualization
-def render_tropycal_figure(mode="strike_prob", model="gefs", show_mean=True):
-    fig, ax = plt.subplots(figsize=(5.5, 4.2))
-    
+# Generate Ensemble Track Coordinates using Python Math Engine
+def compute_ensemble_coords(model="gefs"):
     seed = storm_data["seeds"][model]
     num_members = storm_data["counts"][model]
     np.random.seed(seed)
@@ -179,49 +192,9 @@ def render_tropycal_figure(mode="strike_prob", model="gefs", show_mean=True):
         member_lons.append(m_lon)
         member_lats.append(m_lat)
 
-    all_lons = np.concatenate(member_lons)
-    all_lats = np.concatenate(member_lats)
+    return member_lons, member_lats
 
-    if mode == "strike_prob":
-        xmin, xmax = all_lons.min() - 1.2, all_lons.max() + 1.2
-        ymin, ymax = all_lats.min() - 1.2, all_lats.max() + 1.2
-        
-        X, Y = np.mgrid[xmin:xmax:100j, ymin:ymax:100j]
-        positions = np.vstack([X.ravel(), Y.ravel()])
-        values = np.vstack([all_lons, all_lats])
-        
-        kernel = gaussian_kde(values)
-        Z = np.reshape(kernel(positions).T, X.shape)
-        Z_percent = (Z / Z.max()) * 100.0
-        
-        contour = ax.contourf(X, Y, Z_percent, levels=np.linspace(10, 100, 10), cmap='magma_r', alpha=0.85)
-        cbar = plt.colorbar(contour, ax=ax, shrink=0.8)
-        cbar.set_label('Strike Probability (%)', fontsize=8, fontweight='bold')
-        cbar.ax.tick_params(labelsize=7)
-    else:
-        for i in range(num_members):
-            ax.plot(member_lons[i], member_lats[i], color='#8b5cf6', alpha=0.35, linewidth=1.0)
-
-    if show_mean:
-        mean_lons_arr = np.mean(member_lons, axis=0)
-        mean_lats_arr = np.mean(member_lats, axis=0)
-        ax.plot(mean_lons_arr, mean_lats_arr, color='#10b981', linewidth=2.5, linestyle='--', label='Ensemble Mean')
-        ax.legend(loc='upper left', fontsize=8)
-
-    ax.set_title(f"{storm_data['name']} - {model.upper()} ({num_members} Members)\n{'Strike Probability' if mode == 'strike_prob' else 'plot_ensembles() Track Guidance'}", 
-                 fontsize=9, fontweight='bold', color='#0f172a')
-    ax.set_xlabel("Longitude (°E)", fontsize=8)
-    ax.set_ylabel("Latitude (°N)", fontsize=8)
-    ax.grid(True, linestyle=':', alpha=0.5)
-
-    buf = BytesIO()
-    plt.savefig(buf, format='png', bbox_inches='tight', dpi=110)
-    buf.seek(0)
-    img_b64 = base64.b64encode(buf.read()).decode('utf-8')
-    plt.close(fig)
-    return f"data:image/png;base64,{img_b64}", member_lons, member_lats
-
-# Initialize Interactive Leaflet Map
+# Initialize Native Leaflet Web Map
 map_center = L.latLng(storm_data["lat"], storm_data["lon"])
 map_js = L.map('map', to_js({'zoomControl': False})).setView(map_center, 6)
 
@@ -234,37 +207,59 @@ L.control.zoom(to_js({'position': 'topright'})).addTo(map_js)
 
 active_layers = []
 
-# Main Python-driven Update Function
+# Main Update Callback Function
 def update_dashboard(event=None):
     global active_layers
     
-    mode_choice = document.getElementById("modeSelect").value
+    # Extract DOM inputs
     model_choice = document.getElementById("modelSelect").value
-    show_mean_flag = document.getElementById("showMean").checked
+    show_heatmap = document.getElementById("toggleHeatmap").checked
+    show_spaghetti = document.getElementById("toggleSpaghetti").checked
+    show_mean = document.getElementById("toggleMean").checked
+    heat_radius = int(document.getElementById("radiusSlider").value)
 
-    # Clear Leaflet map vector layers
+    # Clear old Leaflet map layers
     for layer in active_layers:
         map_js.removeLayer(layer)
     active_layers.clear()
 
-    # Generate Matplotlib Tropycal plot & retrieve ensemble array coordinates
-    plot_b64, m_lons, m_lats = render_tropycal_figure(
-        mode=mode_choice, 
-        model=model_choice, 
-        show_mean=show_mean_flag
-    )
+    # Calculate ensemble coordinates using Python backend
+    m_lons, m_lats = compute_ensemble_coords(model=model_choice)
 
-    # Push rendered Python image to overlay UI card
-    document.getElementById("tropycal-plot").src = plot_b64
+    # 1. Direct Leaflet Heatmap Layer rendering Probability Color Map
+    if show_heatmap:
+        heat_points = []
+        for i in range(len(m_lons)):
+            for j in range(len(m_lons[i])):
+                weight = max(1.0 - (j * 0.15), 0.2)
+                heat_points.append([m_lats[i][j], m_lons[i][j], weight])
 
-    # 1. Overlay Interactive Ensemble Polyline Members on Map
-    for i in range(len(m_lons)):
-        pts = [[m_lats[i][j], m_lons[i][j]] for j in range(len(m_lons[i]))]
-        line = L.polyline(to_js(pts), to_js({'color': '#a855f7', 'weight': 1.2, 'opacity': 0.35})).addTo(map_js)
-        active_layers.append(line)
+        heat_layer = L.heatLayer(
+            to_js(heat_points),
+            to_js({
+                'radius': heat_radius,
+                'blur': 20,
+                'maxZoom': 10,
+                'gradient': {
+                    0.2: '#0000ff',
+                    0.4: '#00ffff',
+                    0.6: '#00ff00',
+                    0.8: '#ffff00',
+                    1.0: '#ff0000'
+                }
+            })
+        ).addTo(map_js)
+        active_layers.append(heat_layer)
 
-    # 2. Draw Observed and Mean Track Lines
-    if show_mean_flag:
+    # 2. Interactive Spaghetti Track Lines
+    if show_spaghetti:
+        for i in range(len(m_lons)):
+            pts = [[m_lats[i][j], m_lons[i][j]] for j in range(len(m_lons[i]))]
+            line = L.polyline(to_js(pts), to_js({'color': '#a855f7', 'weight': 1.2, 'opacity': 0.35})).addTo(map_js)
+            active_layers.append(line)
+
+    # 3. Track Vectors & Waypoint Markers
+    if show_mean:
         obs_js = to_js([[c[0], c[1]] for c in storm_data["observed"]])
         obs_line = L.polyline(obs_js, to_js({'color': '#00f2fe', 'weight': 4, 'opacity': 0.9})).addTo(map_js)
         active_layers.append(obs_line)
@@ -281,6 +276,14 @@ def update_dashboard(event=None):
                 'weight': 1.5,
                 'fillOpacity': 0.9
             })).addTo(map_js)
+            
+            marker.bindPopup(f"""
+                <div style="font-size:12px; font-family:sans-serif;">
+                    <b>{storm_data['name']} ({model_choice.upper()})</b><br>
+                    Forecast Lead: <b>+{idx * 12}h</b><br>
+                    Lat: {pt[0]}°N, Lon: {pt[1]}°E
+                </div>
+            """)
             active_layers.append(marker)
 
     map_js.flyTo(map_center, 6)
