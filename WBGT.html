@@ -94,19 +94,35 @@
                 <div class="space-y-2 text-sm">
                     <div class="flex items-center gap-3">
                         <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block border border-black/50"></span>
-                        <span>&lt; 27.7°C ： 注意 (綠色)</span>
+                        <span>&lt; 29 ： 注意</span>
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="w-3.5 h-3.5 rounded-full bg-yellow-400 inline-block border border-black/50"></span>
-                        <span>27.7°C - 29.3°C ： 黃色工作暑熱警告</span>
+                        <span>29.1-30 ： 特別注意</span>
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="w-3.5 h-3.5 rounded-full bg-orange-500 inline-block border border-black/50"></span>
-                        <span>29.4°C - 31.0°C ： 紅色工作暑熱警告</span>
+                        <span>30.1-31 ： 警戒</span>
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="w-3.5 h-3.5 rounded-full bg-red-600 inline-block border border-black/50"></span>
-                        <span>&ge; 31.1°C ： 黑色工作暑熱警告</span>
+                        <span>31.1-33 ： 特別警戒</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-red-600 inline-block border border-black/50"></span>
+                        <span>33.1-35 ： 危險</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-red-600 inline-block border border-black/50"></span>
+                        <span>35.1-36 ： 高危</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-red-600 inline-block border border-black/50"></span>
+                        <span>35.1-36 ：非常高危</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-red-600 inline-block border border-black/50"></span>
+                        <span>&gt 36 ：可致命</span>
                     </div>
                 </div>
             </div>
@@ -181,10 +197,13 @@
                         const hiC = (hiF - 32) * 5 / 9;
                         const wbgt = ((0.76 * hiC) - 1.25).toFixed(1);
 
-                        let color = '#10b981';
-                        if (wbgt >= 31.1) color = '#ef4444';
-                        else if (wbgt >= 29.4) color = '#f97316';
-                        else if (wbgt >= 27.7) color = '#facc15';
+                        let color = '#0000FF';
+                        if (wbgt >= 36) color = '#FFFFFF';
+                        else if (wbgt >= 35) color = '#4B0082';
+                        else if (wbgt >= 33) color = '#800080';
+                        else if (wbgt >= 31) color ='FF0000';
+                        else if (wbgt >= 30) color ='FFA500';
+                        else if (wbgt >= 29) color ='FFFF00';
 
                         const circle = L.circleMarker([lat, lon], {
                             radius: 10,
