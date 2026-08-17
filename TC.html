@@ -50,7 +50,7 @@
         .control-group { margin-bottom: 12px; }
         label { font-size: 12px; color: #94a3b8; font-weight: 600; display: block; margin-bottom: 4px; }
         
-        select, input[type="range"] {
+        select {
             width: 100%;
             padding: 8px;
             background: #1e293b;
@@ -119,7 +119,7 @@
 
         <label class="checkbox-label">
             <input type="checkbox" id="toggleHeatmap" checked py-change="update_dashboard">
-            Strike Probability Heatmap (150 km Radius)
+            Strike Probability Heatmap (KDE × 100%)
         </label>
 
         <label class="checkbox-label">
@@ -133,21 +133,14 @@
         </label>
     </div>
 
-    <!-- Strike Radius Calibration -->
-    <div class="control-group">
-        <label for="radiusKmInput">STRIKE PROBABILITY RADIUS (KM):</label>
-        <input type="range" id="radiusKmInput" min="50" max="300" value="150" step="10" py-change="update_dashboard">
-        <div style="text-align: right; font-size: 11px; color: #38bdf8; margin-top: 2px;" id="radiusDisplay">150 km</div>
-    </div>
-
     <!-- Embedded Heatmap Color Legend -->
     <div class="legend">
-        <span>Strike Probability Scale (within 150 km)</span>
+        <span>Strike Probability Scale (Fixed 150 km Radius, KDE × 100)</span>
         <div class="legend-bar"></div>
         <div class="legend-labels">
             <span>Low (10%)</span>
-            <span>Moderate</span>
-            <span>High Density (100%)</span>
+            <span>Moderate (50%)</span>
+            <span>High (100%)</span>
         </div>
     </div>
 </div>
@@ -156,8 +149,12 @@
 
 <script type="py">
 import numpy as np
-from js import document, L, window
+from scipy.stats import gaussian_kde
+from js import document, L
 from pyodide.ffi import to_js
+
+# Fixed Strike Probability Radius set to 150 km
+FIXED_RADIUS_KM = 150.0
 
 # WP952026 Track Dataset
 storm_data = {
@@ -194,7 +191,7 @@ def compute_ensemble_coords(model="gefs"):
 
     return member_lons, member_lats
 
-# Function to calculate pixel radius dynamically for a physical distance (km)
+# Function to calculate pixel radius dynamically for a physical distance (150 km)
 def get_pixel_radius(lat, radius_km, map_obj):
     meters_per_pixel = 156543.03392 * np.cos(np.radians(lat)) / (2 ** map_obj.getZoom())
     return (radius_km * 1000.0) / meters_per_pixel
@@ -221,9 +218,6 @@ def update_dashboard(event=None):
     show_heatmap = document.getElementById("toggleHeatmap").checked
     show_spaghetti = document.getElementById("toggleSpaghetti").checked
     show_mean = document.getElementById("toggleMean").checked
-    
-    radius_km = float(document.getElementById("radiusKmInput").value)
-    document.getElementById("radiusDisplay").innerText = f"{int(radius_km)} km"
 
     # Clear old Leaflet map layers
     for layer in active_layers:
@@ -233,14 +227,27 @@ def update_dashboard(event=None):
     # Calculate ensemble coordinates using Python backend
     m_lons, m_lats = compute_ensemble_coords(model=model_choice)
 
-    # 1. Leaflet Heatmap Layer calibrated directly to 150 km Strike Distance
+    # 1. Heatmap layer calibrated to fixed 150 km with Scipy KDE multiplied by 100
     if show_heatmap:
-        pixel_radius = get_pixel_radius(storm_data["lat"], radius_km, map_js)
+        pixel_radius = get_pixel_radius(storm_data["lat"], FIXED_RADIUS_KM, map_js)
+        
+        all_lons_flat = np.concatenate(m_lons)
+        all_lats_flat = np.concatenate(m_lats)
+        
+        # Fit 2D Gaussian KDE across ensemble points
+        values = np.vstack([all_lons_flat, all_lats_flat])
+        kernel = gaussian_kde(values)
+        
+        # Evaluate raw KDE probability density and multiply by 100 (%)
+        raw_kde_density = kernel(values)
+        kde_scaled_100 = (raw_kde_density / raw_kde_density.max()) * 100.0
+        
         heat_points = []
-        for i in range(len(m_lons)):
-            for j in range(len(m_lons[i])):
-                weight = max(1.0 - (j * 0.15), 0.2)
-                heat_points.append([m_lats[i][j], m_lons[i][j], weight])
+        for idx in range(len(all_lons_flat)):
+            lat_val = all_lats_flat[idx]
+            lon_val = all_lons_flat[idx]
+            prob_weight = float(kde_scaled_100[idx] / 100.0)
+            heat_points.append([lat_val, lon_val, prob_weight])
 
         heat_layer = L.heatLayer(
             to_js(heat_points),
@@ -249,10 +256,10 @@ def update_dashboard(event=None):
                 'blur': pixel_radius * 0.65,
                 'maxZoom': 10,
                 'gradient': {
-                    0.2: '#0000ff',
-                    0.4: '#00ffff',
-                    0.6: '#00ff00',
-                    0.8: '#ffff00',
+                    0.1: '#0000ff',
+                    0.3: '#00ffff',
+                    0.5: '#00ff00',
+                    0.7: '#ffff00',
                     1.0: '#ff0000'
                 }
             })
