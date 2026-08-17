@@ -3,148 +3,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PyScript Tropical Cyclone Dashboard</title>
+    <title>PyScript West Pacific Typhoon Dashboard</title>
 
-    <!-- PyScript CSS & JS (Latest Version) -->
+    <!-- PyScript Core -->
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
 
-    <!-- Leaflet CSS & JS for Mapping -->
+    <!-- Leaflet JS & CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
-        html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, sans-serif; }
+        html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, -apple-system, sans-serif; }
         #map { width: 100vw; height: 100vh; }
-        #controls {
+        
+        #control-panel {
             position: absolute;
             top: 20px;
             left: 50px;
             z-index: 1000;
             background: rgba(15, 23, 42, 0.92);
             color: #f8fafc;
-            padding: 16px 20px;
+            padding: 18px;
             border-radius: 12px;
+            width: 290px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            width: 260px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.12);
         }
+        
+        .panel-title { font-weight: 700; font-size: 14px; color: #38bdf8; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; }
         .control-group { margin-bottom: 12px; }
-        label { font-size: 12px; font-weight: 600; color: #94a3b8; display: block; margin-bottom: 4px; }
-        select {
+        label { font-size: 12px; color: #94a3b8; font-weight: 600; display: block; margin-bottom: 4px; }
+        
+        select, input[type="number"] {
             width: 100%;
             padding: 8px;
             background: #1e293b;
-            color: white;
+            color: #fff;
             border: 1px solid #475569;
             border-radius: 6px;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .checkbox-label {
+            font-size: 13px;
+            color: #fff;
+            display: flex;
+            align-items: center;
             cursor: pointer;
+            margin-top: 6px;
         }
-        .radio-box {
-            background: #1e293b;
-            padding: 8px 10px;
-            border-radius: 6px;
-            border: 1px solid #475569;
-        }
-        .radio-box label { display: flex; align-items: center; color: white; cursor: pointer; font-size: 13px; margin: 4px 0; }
-        .radio-box input { margin-right: 8px; accent-color: #38bdf8; }
-        .popup-container { width: 300px; text-align: center; }
-        .popup-container img { width: 100%; border-radius: 6px; }
+        .checkbox-label input { margin-right: 8px; accent-color: #38bdf8; }
+
+        .popup-card { width: 330px; text-align: center; }
+        .popup-card img { width: 100%; border-radius: 6px; margin-top: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
     </style>
 
-    <!-- PyScript Package Configuration -->
+    <!-- Configure Pyodide Python Environment -->
     <py-config>
-        packages = ["matplotlib", "folium", "numpy"]
+        packages = ["matplotlib", "numpy"]
     </py-config>
 </head>
 <body>
 
-<div id="controls">
-    <div style="font-weight:700; font-size:15px; color:#38bdf8; margin-bottom:12px;">🌀 PY-SCRIPT VIEWER</div>
+<div id="control-panel">
+    <div class="panel-title">🌏 WEST PACIFIC TYPHOON VIEWER</div>
 
+    <!-- West Pacific System Selector -->
     <div class="control-group">
-        <label for="systemSelect">SELECT SYSTEM:</label>
-        <select id="systemSelect" py-change="update_view">
-            <option value="Ian_2022">Hurricane Ian (2022)</option>
-            <option value="Ida_2021">Hurricane Ida (2021)</option>
-            <option value="Michael_2018">Hurricane Michael (2018)</option>
+        <label for="stormSelect">SELECT WP SYSTEM:</label>
+        <select id="stormSelect" py-change="update_dashboard">
+            <option value="WP902026">Typhoon Gaemi (WP032024)</option>
+            <option value="WP102026">Typhoon Yagi (WP112024)</option>
+            <option value="WP112026">Typhoon Kong-rey (WP232024)</option>
         </select>
     </div>
 
+    <!-- Customized Forecast Track Toggle -->
     <div class="control-group">
-        <label>PLOT OPTION:</label>
-        <div class="radio-box">
-            <label><input type="radio" name="plotType" value="track" checked py-change="update_view"> Track Plot</label>
-            <label><input type="radio" name="plotType" value="ensemble" py-change="update_view"> Ensemble Plot</label>
-        </div>
+        <label>CUSTOMIZED FORECAST TRACK:</label>
+        <label class="checkbox-label">
+            <input type="checkbox" id="showCustomTrack" checked py-change="update_dashboard"> Overlay Custom Track
+        </label>
+    </div>
+
+    <!-- plot_ensemble Options -->
+    <div class="control-group" style="background: #1e293b; padding: 10px; border-radius: 6px; border: 1px solid #475569;">
+        <label style="color:#38bdf8;">plot_ensemble() OPTIONS:</label>
+        
+        <label for="modelSelect" style="margin-top:6px;">ENSEMBLE MODEL:</label>
+        <select id="modelSelect" py-change="update_dashboard">
+            <option value="gefs">GEFS (GFS Ensembles)</option>
+            <option value="eceps">ECEPS (ECMWF Ensembles)</option>
+            <option value="cmeps">CMEPS (CMC Ensembles)</option>
+        </select>
+
+        <label for="memberCount" style="margin-top:8px;">MEMBER COUNT:</label>
+        <input type="number" id="memberCount" value="25" min="5" max="50" step="5" py-change="update_dashboard">
+
+        <label class="checkbox-label">
+            <input type="checkbox" id="showMean" checked py-change="update_dashboard"> Highlight Ensemble Mean
+        </label>
     </div>
 </div>
 
 <div id="map"></div>
 
-<!-- Python code running directly in WebAssembly inside the browser -->
+<!-- Python Logic Running Live via WebAssembly -->
 <script type="py">
 import base64
 from io import BytesIO
 import matplotlib.pyplot as plt
 import numpy as np
-import folium
 from js import document, L
+from pyodide.ffi import to_js
 
-# Simulated dataset (mimicking Tropycal system output for PyScript compatibility)
-systems_data = {
-    "Ian_2022": {
-        "name": "Hurricane Ian (2022)",
-        "lat": 26.9, "lon": -82.1,
-        "coords": [[14.4, -66.4], [16.8, -74.8], [21.8, -83.2], [26.9, -82.1]],
-        "track_title": "Ian Observed Track",
-        "ensemble_title": "Ian GEFS Ensemble Guidance"
+# West Pacific Systems Database (Lat, Lon)
+storms_db = {
+    "WP902026": {
+        "name": "Typhoon Gaemi",
+        "id": "WP032024",
+        "lat": 24.0, "lon": 121.7,
+        "observed_coords": [[16.2, 126.1], [18.1, 125.4], [20.5, 124.8], [24.0, 121.7]],
+        "custom_forecast_coords": [[24.0, 121.7], [25.5, 119.5], [27.1, 118.2], [29.0, 117.0]]
     },
-    "Ida_2021": {
-        "name": "Hurricane Ida (2021)",
-        "lat": 29.3, "lon": -90.2,
-        "coords": [[17.3, -79.3], [23.1, -87.2], [26.1, -89.4], [29.3, -90.2]],
-        "track_title": "Ida Observed Track",
-        "ensemble_title": "Ida GEFS Ensemble Guidance"
+    "WP102026": {
+        "name": "Typhoon Yagi",
+        "id": "WP112024",
+        "lat": 19.2, "lon": 112.5,
+        "observed_coords": [[14.1, 123.8], [16.5, 120.2], [18.4, 116.1], [19.2, 112.5]],
+        "custom_forecast_coords": [[19.2, 112.5], [20.1, 110.2], [21.0, 107.5], [21.5, 104.8]]
     },
-    "Michael_2018": {
-        "name": "Hurricane Michael (2018)",
-        "lat": 30.0, "lon": -85.5,
-        "coords": [[18.4, -85.6], [24.1, -85.3], [27.5, -86.1], [30.0, -85.5]],
-        "track_title": "Michael Observed Track",
-        "ensemble_title": "Michael GEFS Ensemble Guidance"
+    "WP112026": {
+        "name": "Typhoon Kong-rey",
+        "id": "WP232024",
+        "lat": 22.8, "lon": 121.3,
+        "observed_coords": [[16.8, 131.0], [18.5, 128.2], [20.4, 124.5], [22.8, 121.3]],
+        "custom_forecast_coords": [[22.8, 121.3], [25.0, 122.5], [28.2, 124.0], [31.5, 127.8]]
     }
 }
 
-# Function to generate Matplotlib plot as Base64 image directly in-browser
-def generate_plot(title_text, is_ensemble=False):
-    fig, ax = plt.subplots(figsize=(5, 3.8))
+# Emulate Tropycal's plot_ensembles() function in-browser
+def plot_ensembles(storm, model="gefs", num_members=25, show_mean=True):
+    fig, ax = plt.subplots(figsize=(5.5, 4.0))
     
-    if is_ensemble:
-        # Draw mock ensemble track spread
-        x = np.linspace(0, 10, 50)
-        for i in range(12):
-            ax.plot(x, np.sin(x + i*0.1) + i*0.2, alpha=0.5, linewidth=1)
-        ax.set_title(title_text, fontsize=10, fontweight='bold', color='#6b21a8')
-    else:
-        # Draw observed track
-        x = np.linspace(0, 10, 50)
-        ax.plot(x, np.sin(x), color='red', linewidth=2.5, label='Observed')
-        ax.set_title(title_text, fontsize=10, fontweight='bold', color='#1e3a8a')
+    # Deterministic seed per storm and member combination
+    seed = sum(ord(c) for c in storm['name']) + num_members
+    np.random.seed(seed)
     
-    ax.grid(True, linestyle='--', alpha=0.5)
+    x = np.linspace(0, 12, 60)
+    base_track = np.sin(x * 0.35)
     
-    # Save figure to Base64 URI string
+    # Render individual ensemble lines
+    member_tracks = []
+    for i in range(num_members):
+        noise = np.random.normal(0, 0.12, size=len(x)).cumsum()
+        member_line = base_track + noise + (i - num_members/2) * 0.07
+        member_tracks.append(member_line)
+        ax.plot(x, member_line, color='#8b5cf6', alpha=0.35, linewidth=0.9)
+
+    # Highlight Ensemble Mean
+    if show_mean:
+        mean_track = np.mean(member_tracks, axis=0)
+        ax.plot(x, mean_track, color='#10b981', linewidth=2.5, label='Ensemble Mean')
+
+    ax.set_title(f"{storm['name']} ({storm['id']}) - {model.upper()} Ensembles ({num_members} Members)", 
+                 fontsize=9, fontweight='bold', color='#1e293b')
+    ax.grid(True, linestyle='--', alpha=0.4)
+    if show_mean:
+        ax.legend(loc='upper left', fontsize=8)
+
+    # Save Matplotlib plot as Base64 string
     buf = BytesIO()
-    plt.savefig(buf, format='png', bbox_inches='tight', dpi=100)
+    plt.savefig(buf, format='png', bbox_inches='tight', dpi=110)
     buf.seek(0)
     img_b64 = base64.b64encode(buf.read()).decode('utf-8')
     plt.close(fig)
     return f"data:image/png;base64,{img_b64}"
 
-# Initialize Leaflet Map via JS object bridge
-first_sys = systems_data["Ian_2022"]
-map_js = L.map('map').setView([first_sys["lat"], first_sys["lon"]], 6)
+# Initialize Leaflet Map centered over Taiwan/Luzon Strait (West Pacific)
+first_storm = storms_db["WP902026"]
+map_center = L.latLng(first_storm["lat"], first_storm["lon"])
+map_js = L.map('map').setView(map_center, 6)
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     'maxZoom': 19,
@@ -153,46 +194,61 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
 
 active_layers = []
 
-def update_view(event=None):
+# Main dynamic update function called on UI changes
+def update_dashboard(event=None):
     global active_layers
     
-    # Get selected values from DOM
-    sys_key = document.getElementById("systemSelect").value
-    plot_type = document.querySelector('input[name="plotType"]:checked').value
-    storm = systems_data[sys_key]
+    # Parse UI controls
+    storm_key = document.getElementById("stormSelect").value
+    show_custom_track = document.getElementById("showCustomTrack").checked
+    model_choice = document.getElementById("modelSelect").value
+    member_cnt = int(document.getElementById("memberCount").value)
+    show_mean_flag = document.getElementById("showMean").checked
+    
+    storm = storms_db[storm_key]
 
-    # Clear previous layers
+    # Clear prior layers
     for layer in active_layers:
         map_js.removeLayer(layer)
     active_layers.clear()
 
-    # Draw Track Polyline
-    coords_js = [[c[0], c[1]] for c in storm["coords"]]
-    track_line = L.polyline(coords_js, {'color': '#00f2fe', 'weight': 4}).addTo(map_js)
-    active_layers.append(track_line)
+    # Draw Observed Track Line
+    obs_coords_js = to_js([[c[0], c[1]] for c in storm["observed_coords"]])
+    obs_polyline = L.polyline(obs_coords_js, to_js({'color': '#00f2fe', 'weight': 4, 'opacity': 0.9})).addTo(map_js)
+    active_layers.append(obs_polyline)
 
-    # Generate Matplotlib plot in PyScript
-    is_ens = (plot_type == "ensemble")
-    title = storm["ensemble_title"] if is_ens else storm["track_title"]
-    plot_b64 = generate_plot(title, is_ensemble=is_ens)
+    # Draw Customized Forecast Track Line
+    if show_custom_track:
+        fct_coords_js = to_js([[c[0], c[1]] for c in storm["custom_forecast_coords"]])
+        fct_polyline = L.polyline(fct_coords_js, to_js({'color': '#f59e0b', 'weight': 3, 'dashArray': '6, 8'})).addTo(map_js)
+        active_layers.append(fct_polyline)
 
-    # Render Popup Card
+    # Render plot_ensembles() image
+    plot_b64 = plot_ensembles(
+        storm, 
+        model=model_choice, 
+        num_members=member_cnt, 
+        show_mean=show_mean_flag
+    )
+
+    # Build Interactive Popup
     popup_html = f"""
-    <div class="popup-container">
-        <h4 style="margin:0 0 6px 0; color:#0f172a;">{storm['name']}</h4>
+    <div class="popup-card">
+        <h4 style="margin:0; color:#0f172a;">{storm['name']} ({storm['id']})</h4>
         <img src="{plot_b64}">
     </div>
     """
 
-    marker = L.marker([storm["lat"], storm["lon"]]).addTo(map_js)
-    marker.bindPopup(popup_html, {'maxWidth': 320})
+    marker_pos = L.latLng(storm["lat"], storm["lon"])
+    marker = L.marker(marker_pos).addTo(map_js)
+    marker.bindPopup(popup_html, to_js({'maxWidth': 350}))
     active_layers.append(marker)
 
-    # Pan map
-    map_js.flyTo([storm["lat"], storm["lon"]], 6, {'animate': True, 'duration': 1.0})
+    # Pan Map to System Location
+    map_js.flyTo(marker_pos, 6)
 
-# Initial render
-update_view()
+# Initial execution
+update_dashboard()
 </script>
 
 </body>
