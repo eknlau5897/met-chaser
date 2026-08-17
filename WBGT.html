@@ -128,7 +128,7 @@
                 <div class="space-y-1 text-sm text-slate-400">
                     <p>• 數據來源：香港天文台 (HKO) 即時氣象 API</p>
                     <p>• 自動更新：每 10 分鐘自動重新獲取數據並更新地圖</p>
-                    <p>• 點擊地圖上的測站圖標可查看該處的氣溫、酷熱指數及估算 WBGT</p>
+                    <p>• 點擊地圖上的測站圖標可查看該處的氣溫、相對濕度、酷熱指數及估算 WBGT</p>
                     <p>• 本頁面 WBGT 為基於氣溫與相對濕度之簡化估算，僅供參考</p>
                 </div>
             </div>
@@ -142,17 +142,48 @@
 
     <!-- Native JavaScript Implementation -->
     <script>
+        // Coordinates mapping for all 39 stations available in HKO API
         const STATION_COORDINATES = {
+            "Chek Lap Kok": [22.3094, 113.9219],
+            "Cheung Chau": [22.2011, 114.0267],
+            "Clear Water Bay": [22.2878, 114.2858],
+            "Happy Valley": [22.2683, 114.1836],
+            "HK Observatory": [22.3006, 114.1742],
             "Hong Kong Observatory": [22.3006, 114.1742],
+            "HK Park": [22.2783, 114.1586],
+            "Kai Tak Runway Park": [22.3047, 114.2169],
+            "Kau Sai Chau": [22.3650, 114.3094],
             "King's Park": [22.3119, 114.1728],
-            "Wong Chuk Hang": [22.2478, 114.1736],
-            "Ta Kwu Ling": [22.5286, 114.1567],
+            "Kowloon City": [22.3331, 114.1878],
+            "Kwun Tong": [22.3122, 114.2264],
             "Lau Fau Shan": [22.4689, 113.9839],
-            "Tai Po": [22.4461, 114.1783],
-            "Sha Tin": [22.3858, 114.2089],
-            "Tuen Mun": [22.3925, 113.9744],
-            "Tseung Kwan O": [22.3158, 114.2556],
+            "Ngong Ping": [22.2578, 113.9039],
+            "Pak Tam Chung": [22.3908, 114.3231],
+            "Peng Chau": [22.2853, 114.0381],
             "Sai Kung": [22.3836, 114.2708],
+            "Sha Tin": [22.3858, 114.2089],
+            "Sham Shui Po": [22.3358, 114.1569],
+            "Shau Kei Wan": [22.2817, 114.2272],
+            "Shek Kong": [22.4361, 114.0847],
+            "Sheung Shui": [22.5022, 114.1297],
+            "Stanley": [22.2142, 114.2186],
+            "Ta Kwu Ling": [22.5286, 114.1567],
+            "Tai Lung": [22.4975, 114.1136],
+            "Tai Mei Tuk": [22.4753, 114.2375],
+            "Tai Mo Shan": [22.4108, 114.1242],
+            "Tai Po": [22.4461, 114.1783],
+            "Tate's Cairn": [22.3586, 114.2178],
+            "The Peak": [22.2658, 114.1428],
+            "Tseung Kwan O": [22.3158, 114.2556],
+            "Tsing Yi": [22.3442, 114.1100],
+            "Tsuen Wan Ho Koon": [22.3836, 114.1139],
+            "Tsuen Wan Shing Mun Valley": [22.3756, 114.1258],
+            "Tuen Mun": [22.3925, 113.9744],
+            "Waglan Island": [22.1822, 114.3014],
+            "Wetland Park": [22.4708, 114.0064],
+            "Wong Chuk Hang": [22.2478, 114.1736],
+            "Wong Tai Sin": [22.3417, 114.1953],
+            "Yuen Long Park": [22.4419, 114.0183]
         };
 
         const URL = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=en";
@@ -177,7 +208,10 @@
                 const raw = await res.json();
 
                 const tempData = raw.temperature?.data || [];
-                const rhVal = parseFloat(raw.humidity?.data?.[0]?.value || 75);
+                const humidityList = raw.humidity?.data || [];
+                
+                // Fallback humidity if a station-specific value isn't available
+                const defaultRhVal = parseFloat(humidityList[0]?.value || 75);
 
                 markersGroup.clearLayers();
 
@@ -187,13 +221,17 @@
                         const tc = parseFloat(item.value);
                         const [lat, lon] = STATION_COORDINATES[name];
 
+                        // Find station-specific humidity if available, else fallback to main reading
+                        const stationRhObj = humidityList.find(h => h.place === name);
+                        const rhVal = stationRhObj ? parseFloat(stationRhObj.value) : defaultRhVal;
+
                         // WBGT Calculation: WBGT = 0.7 * Heat Index + 3
                         const tf = (tc * 9 / 5) + 32;
                         const hiF = 0.5 * (tf + 61.0 + ((tf - 68.0) * 1.2) + (rhVal * 0.94));
                         const hiC = (hiF - 32) * 5 / 9;
                         const wbgt = (0.7 * hiC + 3).toFixed(1);
 
-                        // Original Color Assignments (Fixed missing '#' prefix bug)
+                        // Original Color Scale Assignment
                         let color = '#0000FF';
                         if (wbgt >= 36) color = '#FFFFFF';
                         else if (wbgt >= 35) color = '#4B0082';
@@ -203,7 +241,7 @@
                         else if (wbgt >= 29) color = '#FFFF00';
 
                         const circle = L.circleMarker([lat, lon], {
-                            radius: 10,
+                            radius: 9,
                             color: '#0f172a',
                             weight: 2,
                             fillColor: color,
@@ -214,6 +252,7 @@
                             <div style="font-family:sans-serif; font-size:13px; color:#1e293b;">
                                 <b>${name}</b><br>
                                 氣溫: ${tc}°C<br>
+                                相對濕度: ${rhVal}%<br>
                                 酷熱指數: ${hiC.toFixed(1)}°C<br>
                                 <b>估算 WBGT: ${wbgt}°C</b>
                             </div>
