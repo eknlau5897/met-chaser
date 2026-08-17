@@ -3,11 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PyScript Interactive Direct-Edit Forecast Builder</title>
-
-    <!-- PyScript Core -->
-    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
-    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+    <title>Observed & Forecast Track Map</title>
 
     <!-- Leaflet JS & CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -15,240 +11,194 @@
 
     <style>
         html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, -apple-system, sans-serif; }
-        #map { width: 100vw; height: 100vh; background: #0b0f19; cursor: crosshair; }
+        #map { width: 100vw; height: 100vh; background: #0b0f19; }
         
-        #control-panel {
+        #info-panel {
             position: absolute;
             top: 20px;
             left: 20px;
             z-index: 1000;
             background: rgba(15, 23, 42, 0.92);
             color: #f8fafc;
-            padding: 18px;
+            padding: 16px;
             border-radius: 12px;
-            width: 340px;
-            max-height: 90vh;
-            overflow-y: auto;
+            width: 300px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             border: 1px solid rgba(255, 255, 255, 0.12);
             backdrop-filter: blur(8px);
         }
-        
-        .panel-title { 
-            font-weight: 700; 
-            font-size: 14px; 
-            color: #38bdf8; 
-            margin-bottom: 12px; 
-            border-bottom: 1px solid rgba(255,255,255,0.1); 
-            padding-bottom: 6px; 
+
+        .title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #38bdf8;
+            margin-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 6px;
+        }
+
+        .info-row {
+            font-size: 12px;
+            color: #cbd5e1;
+            margin-bottom: 6px;
             display: flex;
-            align-items: center;
             justify-content: space-between;
         }
-        
-        .control-group { margin-bottom: 12px; }
-        label { font-size: 12px; color: #94a3b8; font-weight: 600; display: block; margin-bottom: 4px; }
-        
-        input[type="text"], input[type="file"] {
-            width: 100%;
-            padding: 8px;
-            background: #1e293b;
-            color: #fff;
-            border: 1px solid #475569;
-            border-radius: 6px;
-            outline: none;
-            box-sizing: border-box;
-            font-size: 12px;
+
+        .legend {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .btn {
-            width: 100%;
-            background: #0284c7;
-            color: #fff;
-            padding: 9px;
-            border: none;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            text-align: center;
-            margin-top: 6px;
-            box-sizing: border-box;
-        }
-
-        .btn:hover { background: #0369a1; }
-        .btn-danger { background: #dc2626; }
-        .btn-danger:hover { background: #b91c1c; }
-
-        .hint-box {
-            background: rgba(56, 189, 248, 0.1);
-            border-left: 3px solid #38bdf8;
-            padding: 8px;
+        .legend-item {
+            display: flex;
+            align-items: center;
             font-size: 11px;
-            color: #cbd5e1;
-            margin-bottom: 12px;
-            border-radius: 0 4px 4px 0;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+
+        .legend-line {
+            width: 24px;
+            height: 3px;
+            margin-right: 8px;
+            border-radius: 2px;
         }
     </style>
-
-    <py-config>
-        packages = ["pandas", "numpy"]
-    </py-config>
 </head>
 <body>
 
-<div id="control-panel">
-    <div class="panel-title">
-        <span>🌀 DIRECT TRACK BUILDER</span>
-        <span style="font-size: 10px; background: #0284c7; padding: 2px 6px; border-radius: 4px;">INTERACTIVE</span>
-    </div>
+<div id="info-panel">
+    <div class="title" id="storm-title">🌀 TROPICAL SYSTEM TRACK</div>
+    <div class="info-row"><span>Basin:</span><b style="color:#38bdf8;">North West Pacific</b></div>
+    <div class="info-row"><span>Observed Waypoints:</span><b id="obs-count" style="color:#10b981;">0</b></div>
+    <div class="info-row"><span>Forecast Waypoints:</span><b id="fcst-count" style="color:#38bdf8;">0</b></div>
+    <div class="info-row"><span>Min Central Pressure:</span><b id="min-mslp" style="color:#ef4444;">-</b></div>
 
-    <div class="hint-box">
-        • <b>Click map</b> to append waypoints.<br>
-        • <b>Drag points</b> to move coordinates.<br>
-        • <b>Click waypoint</b> to delete it.
-    </div>
-
-    <!-- Metadata -->
-    <div class="control-group">
-        <label for="stormName">SYSTEM NAME / ID:</label>
-        <input type="text" id="stormName" value="Custom Direct Track" py-change="render_map">
-    </div>
-
-    <!-- Actions -->
-    <div class="control-group">
-        <button class="btn" style="background:#059669;" py-click="export_csv">💾 Export Track to CSV</button>
-        <button class="btn btn-danger" py-click="clear_all">🗑️ Clear Track</button>
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-line" style="background: #10b981;"></div>
+            <span>Observed / Past Track (Solid Line)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-line" style="border-top: 3px dashed #38bdf8;"></div>
+            <span>Forecast Track (Dashed Line)</span>
+        </div>
     </div>
 </div>
 
 <div id="map"></div>
 
-<script type="py">
-import io
-import pandas as pd
-import numpy as np
-from js import document, L, Blob, URL
-from pyodide.ffi import to_js, create_proxy
+<script>
+    // =========================================================================
+    // EDIT YOUR FIXED OBSERVED & FORECAST DATA HERE IN THE CODE
+    // =========================================================================
+    const stormName = "TYPHOON 70W";
 
-# Initialize Python Data Structures
-waypoints = [
-    {"hour": 0, "lat": 18.0, "lon": 120.0, "mslp": 1004.0},
-    {"hour": 12, "lat": 18.8, "lon": 118.5, "mslp": 1000.0},
-    {"hour": 24, "lat": 19.6, "lon": 117.1, "mslp": 994.0},
-    {"hour": 36, "lat": 20.5, "lon": 115.8, "mslp": 988.0},
-    {"hour": 48, "lat": 21.3, "lon": 114.5, "mslp": 980.0}
-]
+    // Past / Observed Data (Historical track up to current time)
+    const observedData = [
+        { time: "2026-08-15 00Z", lat: 14.2, lon: 125.0, mslp: 1008.0 },
+        { time: "2026-08-15 12Z", lat: 15.0, lon: 123.8, mslp: 1004.0 },
+        { time: "2026-08-16 00Z", lat: 16.1, lon: 122.5, mslp: 1000.0 },
+        { time: "2026-08-16 12Z", lat: 17.0, lon: 121.2, mslp: 996.0  },
+        { time: "2026-08-17 00Z", lat: 18.0, lon: 120.0, mslp: 990.0  }  // Current position
+    ];
 
-# Initialize Leaflet Map
-map_js = L.map('map', to_js({'zoomControl': False})).setView(L.latLng(19.5, 117.0), 6)
+    // Forecast Data (Projections moving forward)
+    const forecastData = [
+        { hour: 0,  lat: 18.0, lon: 120.0, mslp: 990.0 }, // Starts at current position
+        { hour: 12, lat: 18.8, lon: 118.5, mslp: 985.0 },
+        { hour: 24, lat: 19.6, lon: 117.1, mslp: 978.0 },
+        { hour: 36, lat: 20.5, lon: 115.8, mslp: 970.0 },
+        { hour: 48, lat: 21.3, lon: 114.5, mslp: 965.0 },
+        { hour: 72, lat: 22.2, lon: 113.2, mslp: 960.0 }
+    ];
+    // =========================================================================
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    'maxZoom': 18,
-    'attribution': 'CartoDB'
-}).addTo(map_js)
+    // Update panel details
+    document.getElementById('storm-title').innerText = "🌀 " + stormName;
+    document.getElementById('obs-count').innerText = observedData.length;
+    document.getElementById('fcst-count').innerText = forecastData.length;
 
-L.control.zoom(to_js({'position': 'topright'})).addTo(map_js)
+    const allMslp = [...observedData.map(p => p.mslp), ...forecastData.map(p => p.mslp)];
+    const minMslp = Math.min(...allMslp);
+    document.getElementById('min-mslp').innerText = minMslp.toFixed(1) + " hPa";
 
-active_layers = []
+    // Center map on the current position (last point of observed track)
+    const currentPos = observedData[observedData.length - 1];
+    const map = L.map('map', { zoomControl: false }).setView([currentPos.lat, currentPos.lon], 6);
 
-def render_map(event=None):
-    global active_layers, waypoints
-    
-    # Clear existing map layers
-    for layer in active_layers:
-        map_js.removeLayer(layer)
-    active_layers.clear()
+    // Dark Map Base Tiles
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 18,
+        attribution: 'CartoDB'
+    }).addTo(map);
 
-    if not waypoints:
-        return
+    L.control.zoom({ position: 'topright' }).addTo(map);
 
-    storm_title = document.getElementById("stormName").value
+    // 1. PLOT OBSERVED TRACK (Solid Green Vector)
+    const obsCoords = observedData.map(p => [p.lat, p.lon]);
+    L.polyline(obsCoords, {
+        color: '#10b981',
+        weight: 4,
+        opacity: 0.9
+    }).addTo(map);
 
-    # Re-calculate forecast hours linearly based on sequence
-    for idx, wp in enumerate(waypoints):
-        wp["hour"] = idx * 12
+    // Plot Observed Markers
+    observedData.forEach((point, index) => {
+        const isCurrent = index === observedData.length - 1;
 
-    # 1. Polyline Vector
-    coords = [[wp["lat"], wp["lon"]] for wp in waypoints]
-    polyline = L.polyline(to_js(coords), to_js({
-        'color': '#38bdf8',
-        'weight': 3,
-        'dashArray': '6, 6',
-        'opacity': 0.85
-    })).addTo(map_js)
-    active_layers.append(polyline)
+        const marker = L.circleMarker([point.lat, point.lon], {
+            radius: isCurrent ? 8 : 5,
+            fillColor: isCurrent ? '#ef4444' : '#10b981',
+            color: '#ffffff',
+            weight: isCurrent ? 2 : 1,
+            fillOpacity: 1
+        }).addTo(map);
 
-    # 2. Interactive Markers
-    for idx, wp in enumerate(waypoints):
-        marker = L.marker(L.latLng(wp["lat"], wp["lon"]), to_js({
-            'draggable': True
-        })).addTo(map_js)
-
-        # Popup Info
-        marker.bindPopup(f"""
+        marker.bindPopup(`
             <div style="font-size:12px; font-family:sans-serif;">
-                <b>{storm_title}</b><br>
-                Hour: <b>+{wp['hour']}h</b><br>
-                Pos: <b>{wp['lat']:.2f}°N, {wp['lon']:.2f}°E</b><br>
-                <i style="color:#94a3b8;">Click marker again to delete</i>
+                <b style="color:#10b981;">OBSERVED DATA</b><br>
+                <b>${stormName}</b><br>
+                Time: <b>${point.time}</b><br>
+                Position: <b>${point.lat.toFixed(1)}°N, ${point.lon.toFixed(1)}°E</b><br>
+                MSLP: <b>${point.mslp.toFixed(1)} hPa</b>
             </div>
-        """)
+        `);
+    });
 
-        # Marker Drag Binding
-        def make_drag_handler(i):
-            def on_drag_end(e):
-                latlng = e.target.getLatLng()
-                waypoints[i]["lat"] = float(latlng.lat)
-                waypoints[i]["lon"] = float(latlng.lng)
-                render_map()
-            return create_proxy(on_drag_end)
+    // 2. PLOT FORECAST TRACK (Dashed Cyan Vector)
+    const fcstCoords = forecastData.map(p => [p.lat, p.lon]);
+    L.polyline(fcstCoords, {
+        color: '#38bdf8',
+        weight: 3,
+        dashArray: '6, 6',
+        opacity: 0.85
+    }).addTo(map);
 
-        # Marker Delete Binding (click event)
-        def make_click_handler(i):
-            def on_click(e):
-                waypoints.pop(i)
-                render_map()
-            return create_proxy(on_click)
+    // Plot Forecast Markers (skip index 0 since it overlaps with current position)
+    forecastData.slice(1).forEach((point) => {
+        const markerColor = point.mslp < 970 ? '#ef4444' : (point.mslp < 990 ? '#f59e0b' : '#38bdf8');
 
-        marker.on('dragend', make_drag_handler(idx))
-        marker.on('click', make_click_handler(idx))
+        const marker = L.circleMarker([point.lat, point.lon], {
+            radius: 5,
+            fillColor: markerColor,
+            color: '#ffffff',
+            weight: 1.5,
+            fillOpacity: 0.9
+        }).addTo(map);
 
-        active_layers.append(marker)
-
-# Map Click Listener to add new Waypoints dynamically
-def on_map_click(e):
-    lat = float(e.latlng.lat)
-    lon = float(e.latlng.lng)
-    
-    waypoints.append({
-        "hour": len(waypoints) * 12,
-        "lat": lat,
-        "lon": lon,
-        "mslp": 1000.0
-    })
-    render_map()
-
-map_js.on('click', create_proxy(on_map_click))
-
-def clear_all(event=None):
-    global waypoints
-    waypoints = []
-    render_map()
-
-def export_csv(event=None):
-    df = pd.DataFrame(waypoints)
-    csv_str = df.to_csv(index=False)
-    blob = Blob.new([csv_str], to_js({'type': 'text/csv'}))
-    url = URL.createObjectURL(blob)
-    
-    a = document.createElement('a')
-    a.href = url
-    a.download = f"custom_track.csv"
-    a.click()
-
-# Initial render
-render_map()
+        marker.bindPopup(`
+            <div style="font-size:12px; font-family:sans-serif;">
+                <b style="color:#38bdf8;">FORECAST DATA</b><br>
+                <b>${stormName}</b><br>
+                Lead Time: <b>+${point.hour}h</b><br>
+                Position: <b>${point.lat.toFixed(1)}°N, ${point.lon.toFixed(1)}°E</b><br>
+                MSLP: <b>${point.mslp.toFixed(1)} hPa</b>
+            </div>
+        `);
+    });
 </script>
 
 </body>
