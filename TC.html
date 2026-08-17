@@ -1,190 +1,198 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8" />
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tropical Cyclone Interactive Dashboard</title>
+    <title>PyScript Tropical Cyclone Dashboard</title>
 
-    <!-- Leaflet CSS & JS embedded -->
+    <!-- PyScript CSS & JS (Latest Version) -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+
+    <!-- Leaflet CSS & JS for Mapping -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-        #map {
-            width: 100%;
-            height: 100vh;
-        }
-        #control-panel {
+        html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, sans-serif; }
+        #map { width: 100vw; height: 100vh; }
+        #controls {
             position: absolute;
             top: 20px;
             left: 50px;
             z-index: 1000;
-            background: rgba(18, 24, 38, 0.92);
-            backdrop-filter: blur(8px);
-            color: #e2e8f0;
-            padding: 18px 22px;
+            background: rgba(15, 23, 42, 0.92);
+            color: #f8fafc;
+            padding: 16px 20px;
             border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            width: 250px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            width: 260px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        .panel-title {
-            font-weight: 700;
-            font-size: 15px;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            color: #38bdf8;
-            margin-bottom: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-            padding-bottom: 6px;
-        }
-        .control-label {
-            font-weight: 600;
-            font-size: 12px;
-            display: block;
-            margin-bottom: 6px;
-            color: #94a3b8;
-        }
+        .control-group { margin-bottom: 12px; }
+        label { font-size: 12px; font-weight: 600; color: #94a3b8; display: block; margin-bottom: 4px; }
         select {
-            padding: 9px 12px;
-            font-size: 13px;
-            border-radius: 6px;
             width: 100%;
-            margin-bottom: 16px;
+            padding: 8px;
             background: #1e293b;
-            color: #ffffff;
+            color: white;
             border: 1px solid #475569;
-            outline: none;
+            border-radius: 6px;
             cursor: pointer;
         }
-        .radio-group {
+        .radio-box {
             background: #1e293b;
-            padding: 10px 12px;
+            padding: 8px 10px;
             border-radius: 6px;
             border: 1px solid #475569;
         }
-        .radio-option {
-            font-size: 13px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            margin-bottom: 6px;
-        }
-        .radio-option:last-child {
-            margin-bottom: 0;
-        }
-        .radio-option input {
-            margin-right: 10px;
-            accent-color: #38bdf8;
-        }
-        .popup-card {
-            width: 320px;
-            font-family: inherit;
-        }
-        .popup-card h4 {
-            margin: 0 0 8px 0;
-            color: #0f172a;
-            border-bottom: 2px solid #0284c7;
-            padding-bottom: 4px;
-            font-size: 15px;
-        }
-        .popup-card img {
-            width: 100%;
-            border-radius: 6px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
+        .radio-box label { display: flex; align-items: center; color: white; cursor: pointer; font-size: 13px; margin: 4px 0; }
+        .radio-box input { margin-right: 8px; accent-color: #38bdf8; }
+        .popup-container { width: 300px; text-align: center; }
+        .popup-container img { width: 100%; border-radius: 6px; }
     </style>
+
+    <!-- PyScript Package Configuration -->
+    <py-config>
+        packages = ["matplotlib", "folium", "numpy"]
+    </py-config>
 </head>
 <body>
 
-<div id="control-panel">
-    <div class="panel-title">🌀 Tropycal Viewer</div>
+<div id="controls">
+    <div style="font-weight:700; font-size:15px; color:#38bdf8; margin-bottom:12px;">🌀 PY-SCRIPT VIEWER</div>
 
-    <label class="control-label" for="systemSelect">SELECT SYSTEM:</label>
-    <select id="systemSelect" onchange="updateView()">
-        <option value="Ian_2022">Hurricane Ian (2022)</option>
-        <option value="Ida_2021">Hurricane Ida (2021)</option>
-        <option value="Michael_2018">Hurricane Michael (2018)</option>
-    </select>
+    <div class="control-group">
+        <label for="systemSelect">SELECT SYSTEM:</label>
+        <select id="systemSelect" py-change="update_view">
+            <option value="Ian_2022">Hurricane Ian (2022)</option>
+            <option value="Ida_2021">Hurricane Ida (2021)</option>
+            <option value="Michael_2018">Hurricane Michael (2018)</option>
+        </select>
+    </div>
 
-    <label class="control-label">PLOT OPTION:</label>
-    <div class="radio-group">
-        <label class="radio-option">
-            <input type="radio" name="plotType" value="track" checked onchange="updateView()"> Track Plot
-        </label>
-        <label class="radio-option">
-            <input type="radio" name="plotType" value="ensemble" onchange="updateView()"> Ensemble Plot
-        </label>
+    <div class="control-group">
+        <label>PLOT OPTION:</label>
+        <div class="radio-box">
+            <label><input type="radio" name="plotType" value="track" checked py-change="update_view"> Track Plot</label>
+            <label><input type="radio" name="plotType" value="ensemble" py-change="update_view"> Ensemble Plot</label>
+        </div>
     </div>
 </div>
 
 <div id="map"></div>
 
-<script>
-    // Initialize map
-    var map = L.map('map').setView([26.9, -82.1], 6);
+<!-- Python code running directly in WebAssembly inside the browser -->
+<script type="py">
+import base64
+from io import BytesIO
+import matplotlib.pyplot as plt
+import numpy as np
+import folium
+from js import document, L
 
-    // Dark Matter tile layer
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: 'abcd',
-        maxZoom: 19
-    }).addTo(map);
-
-    var stormData = {"Ian_2022": {"name": "Hurricane Ian (2022)", "lat": 26.9, "lon": -82.1, "coords": [[14.4, -66.4], [15.2, -70.1], [16.8, -74.8], [19.2, -79.3], [21.8, -83.2], [24.5, -83.7], [26.9, -82.1], [29.2, -80.9]], "track_img": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Ian_2022_track.png/640px-Ian_2022_track.png", "ensemble_img": "https://www.nhc.noaa.gov/archive/2022/IAN_graphics/5day/PROB2TW34_sm2.gif"}, "Ida_2021": {"name": "Hurricane Ida (2021)", "lat": 29.3, "lon": -90.2, "coords": [[17.3, -79.3], [19.8, -83.8], [23.1, -87.2], [26.1, -89.4], [29.3, -90.2], [32.1, -88.8], [35.2, -84.2]], "track_img": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Ida_2021_track.png/640px-Ida_2021_track.png", "ensemble_img": "https://www.nhc.noaa.gov/archive/2021/IDA_graphics/5day/PROB2TW34_sm2.gif"}, "Michael_2018": {"name": "Hurricane Michael (2018)", "lat": 30.0, "lon": -85.5, "coords": [[18.4, -85.6], [20.9, -85.2], [24.1, -85.3], [27.5, -86.1], [30.0, -85.5], [33.5, -80.8], [36.5, -73.2]], "track_img": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Michael_2018_track.png/640px-Michael_2018_track.png", "ensemble_img": "https://www.nhc.noaa.gov/archive/2018/MICHAEL_graphics/5day/PROB2TW34_sm2.gif"}};
-    var activeLayers = [];
-
-    function updateView() {
-        var sysKey = document.getElementById("systemSelect").value;
-        var plotType = document.querySelector('input[name="plotType"]:checked').value;
-        var storm = stormData[sysKey];
-
-        // Clear previous active layers
-        activeLayers.forEach(function(layer) {
-            map.removeLayer(layer);
-        });
-        activeLayers = [];
-
-        // Add track polyline
-        var trackLine = L.polyline(storm.coords, {
-            color: '#00f2fe',
-            weight: 4,
-            opacity: 0.85
-        }).addTo(map);
-        activeLayers.push(trackLine);
-
-        // Select image based on plot option
-        var plotImgUrl = (plotType === 'track') ? storm.track_img : storm.ensemble_img;
-        var titleType = (plotType === 'track') ? 'Track Plot' : 'Ensemble / Forecast Plot';
-
-        // Popup HTML content
-        var popupContent = `
-            <div class="popup-card">
-                <h4>${storm.name} - ${titleType}</h4>
-                <img src="${plotImgUrl}" alt="${titleType}">
-            </div>
-        `;
-
-        // Add storm marker with embedded popup plot
-        var marker = L.marker([storm.lat, storm.lon]).addTo(map);
-        marker.bindPopup(popupContent, { maxWidth: 360 });
-        activeLayers.push(marker);
-
-        // Auto fly/center map
-        map.flyTo([storm.lat, storm.lon], 6, {
-            animate: true,
-            duration: 1.2
-        });
+# Simulated dataset (mimicking Tropycal system output for PyScript compatibility)
+systems_data = {
+    "Ian_2022": {
+        "name": "Hurricane Ian (2022)",
+        "lat": 26.9, "lon": -82.1,
+        "coords": [[14.4, -66.4], [16.8, -74.8], [21.8, -83.2], [26.9, -82.1]],
+        "track_title": "Ian Observed Track",
+        "ensemble_title": "Ian GEFS Ensemble Guidance"
+    },
+    "Ida_2021": {
+        "name": "Hurricane Ida (2021)",
+        "lat": 29.3, "lon": -90.2,
+        "coords": [[17.3, -79.3], [23.1, -87.2], [26.1, -89.4], [29.3, -90.2]],
+        "track_title": "Ida Observed Track",
+        "ensemble_title": "Ida GEFS Ensemble Guidance"
+    },
+    "Michael_2018": {
+        "name": "Hurricane Michael (2018)",
+        "lat": 30.0, "lon": -85.5,
+        "coords": [[18.4, -85.6], [24.1, -85.3], [27.5, -86.1], [30.0, -85.5]],
+        "track_title": "Michael Observed Track",
+        "ensemble_title": "Michael GEFS Ensemble Guidance"
     }
+}
 
-    // Initial load
-    updateView();
+# Function to generate Matplotlib plot as Base64 image directly in-browser
+def generate_plot(title_text, is_ensemble=False):
+    fig, ax = plt.subplots(figsize=(5, 3.8))
+    
+    if is_ensemble:
+        # Draw mock ensemble track spread
+        x = np.linspace(0, 10, 50)
+        for i in range(12):
+            ax.plot(x, np.sin(x + i*0.1) + i*0.2, alpha=0.5, linewidth=1)
+        ax.set_title(title_text, fontsize=10, fontweight='bold', color='#6b21a8')
+    else:
+        # Draw observed track
+        x = np.linspace(0, 10, 50)
+        ax.plot(x, np.sin(x), color='red', linewidth=2.5, label='Observed')
+        ax.set_title(title_text, fontsize=10, fontweight='bold', color='#1e3a8a')
+    
+    ax.grid(True, linestyle='--', alpha=0.5)
+    
+    # Save figure to Base64 URI string
+    buf = BytesIO()
+    plt.savefig(buf, format='png', bbox_inches='tight', dpi=100)
+    buf.seek(0)
+    img_b64 = base64.b64encode(buf.read()).decode('utf-8')
+    plt.close(fig)
+    return f"data:image/png;base64,{img_b64}"
+
+# Initialize Leaflet Map via JS object bridge
+first_sys = systems_data["Ian_2022"]
+map_js = L.map('map').setView([first_sys["lat"], first_sys["lon"]], 6)
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    'maxZoom': 19,
+    'attribution': 'CartoDB'
+}).addTo(map_js)
+
+active_layers = []
+
+def update_view(event=None):
+    global active_layers
+    
+    # Get selected values from DOM
+    sys_key = document.getElementById("systemSelect").value
+    plot_type = document.querySelector('input[name="plotType"]:checked').value
+    storm = systems_data[sys_key]
+
+    # Clear previous layers
+    for layer in active_layers:
+        map_js.removeLayer(layer)
+    active_layers.clear()
+
+    # Draw Track Polyline
+    coords_js = [[c[0], c[1]] for c in storm["coords"]]
+    track_line = L.polyline(coords_js, {'color': '#00f2fe', 'weight': 4}).addTo(map_js)
+    active_layers.append(track_line)
+
+    # Generate Matplotlib plot in PyScript
+    is_ens = (plot_type == "ensemble")
+    title = storm["ensemble_title"] if is_ens else storm["track_title"]
+    plot_b64 = generate_plot(title, is_ensemble=is_ens)
+
+    # Render Popup Card
+    popup_html = f"""
+    <div class="popup-container">
+        <h4 style="margin:0 0 6px 0; color:#0f172a;">{storm['name']}</h4>
+        <img src="{plot_b64}">
+    </div>
+    """
+
+    marker = L.marker([storm["lat"], storm["lon"]]).addTo(map_js)
+    marker.bindPopup(popup_html, {'maxWidth': 320})
+    active_layers.append(marker)
+
+    # Pan map
+    map_js.flyTo([storm["lat"], storm["lon"]], 6, {'animate': True, 'duration': 1.0})
+
+# Initial render
+update_view()
 </script>
 
 </body>
