@@ -3,18 +3,14 @@
 <head> 
     <meta charset="UTF-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> 
-    <title>香港氣象追擊網 | 戶外 WBGT 實況監測 (Folium + PyScript)</title> 
+    <title>香港氣象追擊網 | 戶外 WBGT 實況監測 (Pandas + Folium + PyScript)</title> 
     
     <!-- Tailwind CSS --> 
     <script src="https://cdn.tailwindcss.com"></script> 
     <script> 
         tailwind.config = { 
             darkMode: 'class', 
-            theme: { 
-                extend: { 
-                    colors: { darkBg: '#0b0f19', cardBg: '#0f172a' }, 
-                }, 
-            } 
+            theme: { extend: { colors: { darkBg: '#0b0f19', cardBg: '#0f172a' } } } 
         } 
     </script> 
     
@@ -29,9 +25,9 @@
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
 
-    <!-- Configure PyScript Packages -->
+    <!-- Configure PyScript Packages (Folium + Pandas) -->
     <py-config>
-        packages = ["folium"]
+        packages = ["folium", "pandas"]
     </py-config>
 </head> 
 
@@ -49,7 +45,7 @@
             <div class="hidden md:flex items-center gap-4 text-xs text-slate-400"> 
                 <span class="flex items-center gap-1.5"> 
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 
-                    PyScript + Folium 驅動中 
+                    Pandas + Folium 驅動中 
                 </span> 
             </div> 
         </div> 
@@ -59,23 +55,25 @@
     <main class="container mx-auto px-4 py-6 flex-grow"> 
         <div class="text-center mb-6"> 
             <h2 class="text-2xl md:text-3xl font-bold text-white mb-1">戶外濕球黑球溫度 (WBGT) 實況監測</h2> 
-            <p class="text-sky-400 text-sm font-medium mt-1">使用 Python Folium + `pyfetch` 讀取香港天文台即時 API 數據</p> 
+            <p class="text-sky-400 text-sm font-medium mt-1">使用 Python Pandas `pd.read_csv` 合併氣溫與濕度高精度數據</p> 
         </div> 
 
         <div class="model-card p-4 relative"> 
             <div id="status" class="mb-4 p-3 bg-slate-950 border border-slate-800 rounded-lg text-sm text-sky-300 font-mono text-center flex items-center justify-center gap-2"> 
-                正在初始化 Python 環境並安裝 Folium 套件... 
+                正在初始化 Python 環境並載入 Pandas 與 Folium... 
             </div> 
 
             <div id="map-container" class="w-full h-[600px] rounded-lg border border-slate-800 bg-slate-950 overflow-hidden"></div> 
         </div> 
     </main> 
 
-    <!-- PyScript Engine -->
+    <!-- PyScript Data Engine -->
     <script type="py">
+import io
 import math
 import asyncio
 from datetime import datetime
+import pandas as pd
 from pyodide.http import pyfetch
 from pyscript import display
 import folium
@@ -86,6 +84,7 @@ STATIONS = {
     "Cheung Chau": [22.2011, 114.0267],
     "Clear Water Bay": [22.2878, 114.2858],
     "Happy Valley": [22.2683, 114.1836],
+    "HK Observatory": [22.3006, 114.1742],
     "Hong Kong Observatory": [22.3006, 114.1742],
     "HK Park": [22.2783, 114.1586],
     "Kai Tak Runway Park": [22.3047, 114.2169],
@@ -123,8 +122,10 @@ STATIONS = {
     "Yuen Long Park": [22.4419, 114.0183]
 }
 
-# Native CORS-enabled Open Data API Endpoint
-HKO_API_URL = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=en"
+# CORS Proxy appended to bypass cross-origin browser blocking
+CORS_PROXY = "https://corsproxy.io/?"
+TEMP_CSV_URL = CORS_PROXY + "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_temperature.csv"
+RH_CSV_URL   = CORS_PROXY + "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_humidity.csv"
 
 def calculate_outdoor_wbgt(temp_c, rh):
     vp = (rh / 100.0) * 6.105 * math.exp((17.27 * temp_c) / (237.7 + temp_c))
@@ -140,25 +141,36 @@ def get_wbgt_color(wbgt):
     elif wbgt >= 29.0: return "#FACC15"
     return "#10B981"
 
+async def fetch_dataframe(url, value_col_name):
+    # Fetch CSV via pyfetch and parse string buffer directly with pandas
+    res = await pyfetch(url)
+    csv_str = await res.string()
+    
+    # Read into DataFrame and name columns cleanly
+    df = pd.read_csv(io.StringIO(csv_str), header=0, names=["datetime", "station", value_col_name])
+    
+    # Convert metric columns to float, dropping invalid rows
+    df[value_col_name] = pd.to_numeric(df[value_col_name], errors="coerce")
+    df["station"] = df["station"].astype(str).str.strip()
+    return df.dropna(subset=[value_col_name])
+
 async def generate_folium_map():
     status_div = document.getElementById("status")
     try:
-        status_div.innerHTML = '<span class="text-sky-400 animate-pulse">正在讀取香港天文台即時 API 數據...</span>'
+        status_div.innerHTML = '<span class="text-sky-400 animate-pulse">正在使用 Pandas 解析與合併即時 CSV...</span>'
         
-        response = await pyfetch(HKO_API_URL)
-        data = await response.json()
+        # Concurrently fetch Temperature and Humidity DataFrames
+        df_temp, df_rh = await asyncio.gather(
+            fetch_dataframe(TEMP_CSV_URL, "temp"),
+            fetch_dataframe(RH_CSV_URL, "rh")
+        )
         
-        # Parse Temperatures
-        temp_data = {}
-        for item in data.get("temperature", {}).get("data", []):
-            temp_data[item.get("place")] = float(item.get("value"))
-
-        # Parse Relative Humidity
-        rh_data = {}
-        for item in data.get("humidity", {}).get("data", []):
-            rh_data[item.get("place")] = float(item.get("value"))
-            
-        default_rh = float(data.get("humidity", {}).get("data", [{}])[0].get("value", 75))
+        # Merge both DataFrames on station name
+        merged_df = pd.merge(df_temp, df_rh[["station", "rh"]], on="station", how="left")
+        merged_df["rh"] = merged_df["rh"].fillna(75.0) # Default RH fallback if missing
+        
+        # Filter stations matching our coordinate reference dictionary
+        merged_df = merged_df[merged_df["station"].isin(STATIONS.keys())]
 
         m = folium.Map(
             location=[22.3527, 114.1272],
@@ -167,43 +179,44 @@ async def generate_folium_map():
         )
         
         count = 0
-        for station_name, temp_c in temp_data.items():
-            if station_name in STATIONS:
-                rh_val = rh_data.get(station_name, default_rh)
-                lat, lon = STATIONS[station_name]
-                
-                wbgt = calculate_outdoor_wbgt(temp_c, rh_val)
-                color = get_wbgt_color(wbgt)
-                
-                popup_html = f"""
-                    <div style="font-family:sans-serif; font-size:13px; color:#1e293b; min-width:140px;">
-                        <b style="font-size:14px;">{station_name}</b><hr style="margin:4px 0;">
-                        氣溫: <b>{temp_c:.1f}°C</b><br>
-                        相對濕度: <b>{rh_val:.0f}%</b><br>
-                        估算戶外 WBGT: <b style="color:{color};">{wbgt:.2f}°C</b>
-                    </div>
-                """
-                
-                folium.CircleMarker(
-                    location=[lat, lon],
-                    radius=10,
-                    popup=folium.Popup(popup_html, max_width=220),
-                    tooltip=f"{station_name}: WBGT {wbgt:.2f}°C",
-                    color="#0f172a",
-                    weight=2,
-                    fill=True,
-                    fill_color=color,
-                    fill_opacity=0.85
-                ).add_to(m)
-                
-                count += 1
+        for _, row in merged_df.iterrows():
+            station_name = row["station"]
+            temp_c = row["temp"]
+            rh_val = row["rh"]
+            
+            lat, lon = STATIONS[station_name]
+            wbgt = calculate_outdoor_wbgt(temp_c, rh_val)
+            color = get_wbgt_color(wbgt)
+            
+            popup_html = f"""
+                <div style="font-family:sans-serif; font-size:13px; color:#1e293b; min-width:140px;">
+                    <b style="font-size:14px;">{station_name}</b><hr style="margin:4px 0;">
+                    氣溫: <b>{temp_c:.1f}°C</b><br>
+                    相對濕度: <b>{rh_val:.0f}%</b><br>
+                    估算戶外 WBGT: <b style="color:{color};">{wbgt:.2f}°C</b>
+                </div>
+            """
+            
+            folium.CircleMarker(
+                location=[lat, lon],
+                radius=10,
+                popup=folium.Popup(popup_html, max_width=220),
+                tooltip=f"{station_name}: WBGT {wbgt:.2f}°C",
+                color="#0f172a",
+                weight=2,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.85
+            ).add_to(m)
+            
+            count += 1
 
         container = document.getElementById("map-container")
         container.innerHTML = "" 
         display(m, target="map-container")
         
         now_str = datetime.now().strftime("%H:%M:%S")
-        status_div.innerHTML = f'<span class="text-emerald-400">● Folium 地圖渲染完成 ({count} 個測站)</span> — 更新時間：{now_str}'
+        status_div.innerHTML = f'<span class="text-emerald-400">● Pandas & Folium 渲染完成 ({count} 個測站)</span> — 更新時間：{now_str}'
 
     except Exception as e:
         status_div.innerHTML = f'<span class="text-red-400">地圖生成失敗: {str(e)}</span>'
