@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tropical Cyclone Interactive Dashboard</title>
+
+    <!-- Leaflet CSS & JS embedded -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+        #control-panel {
+            position: absolute;
+            top: 20px;
+            left: 50px;
+            z-index: 1000;
+            background: rgba(18, 24, 38, 0.92);
+            backdrop-filter: blur(8px);
+            color: #e2e8f0;
+            padding: 18px 22px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            width: 250px;
+        }
+        .panel-title {
+            font-weight: 700;
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #38bdf8;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            padding-bottom: 6px;
+        }
+        .control-label {
+            font-weight: 600;
+            font-size: 12px;
+            display: block;
+            margin-bottom: 6px;
+            color: #94a3b8;
+        }
+        select {
+            padding: 9px 12px;
+            font-size: 13px;
+            border-radius: 6px;
+            width: 100%;
+            margin-bottom: 16px;
+            background: #1e293b;
+            color: #ffffff;
+            border: 1px solid #475569;
+            outline: none;
+            cursor: pointer;
+        }
+        .radio-group {
+            background: #1e293b;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid #475569;
+        }
+        .radio-option {
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .radio-option:last-child {
+            margin-bottom: 0;
+        }
+        .radio-option input {
+            margin-right: 10px;
+            accent-color: #38bdf8;
+        }
+        .popup-card {
+            width: 320px;
+            font-family: inherit;
+        }
+        .popup-card h4 {
+            margin: 0 0 8px 0;
+            color: #0f172a;
+            border-bottom: 2px solid #0284c7;
+            padding-bottom: 4px;
+            font-size: 15px;
+        }
+        .popup-card img {
+            width: 100%;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+<div id="control-panel">
+    <div class="panel-title">🌀 Tropycal Viewer</div>
+
+    <label class="control-label" for="systemSelect">SELECT SYSTEM:</label>
+    <select id="systemSelect" onchange="updateView()">
+        <option value="Ian_2022">Hurricane Ian (2022)</option>
+        <option value="Ida_2021">Hurricane Ida (2021)</option>
+        <option value="Michael_2018">Hurricane Michael (2018)</option>
+    </select>
+
+    <label class="control-label">PLOT OPTION:</label>
+    <div class="radio-group">
+        <label class="radio-option">
+            <input type="radio" name="plotType" value="track" checked onchange="updateView()"> Track Plot
+        </label>
+        <label class="radio-option">
+            <input type="radio" name="plotType" value="ensemble" onchange="updateView()"> Ensemble Plot
+        </label>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<script>
+    // Initialize map
+    var map = L.map('map').setView([26.9, -82.1], 6);
+
+    // Dark Matter tile layer
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(map);
+
+    var stormData = {"Ian_2022": {"name": "Hurricane Ian (2022)", "lat": 26.9, "lon": -82.1, "coords": [[14.4, -66.4], [15.2, -70.1], [16.8, -74.8], [19.2, -79.3], [21.8, -83.2], [24.5, -83.7], [26.9, -82.1], [29.2, -80.9]], "track_img": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Ian_2022_track.png/640px-Ian_2022_track.png", "ensemble_img": "https://www.nhc.noaa.gov/archive/2022/IAN_graphics/5day/PROB2TW34_sm2.gif"}, "Ida_2021": {"name": "Hurricane Ida (2021)", "lat": 29.3, "lon": -90.2, "coords": [[17.3, -79.3], [19.8, -83.8], [23.1, -87.2], [26.1, -89.4], [29.3, -90.2], [32.1, -88.8], [35.2, -84.2]], "track_img": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Ida_2021_track.png/640px-Ida_2021_track.png", "ensemble_img": "https://www.nhc.noaa.gov/archive/2021/IDA_graphics/5day/PROB2TW34_sm2.gif"}, "Michael_2018": {"name": "Hurricane Michael (2018)", "lat": 30.0, "lon": -85.5, "coords": [[18.4, -85.6], [20.9, -85.2], [24.1, -85.3], [27.5, -86.1], [30.0, -85.5], [33.5, -80.8], [36.5, -73.2]], "track_img": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Michael_2018_track.png/640px-Michael_2018_track.png", "ensemble_img": "https://www.nhc.noaa.gov/archive/2018/MICHAEL_graphics/5day/PROB2TW34_sm2.gif"}};
+    var activeLayers = [];
+
+    function updateView() {
+        var sysKey = document.getElementById("systemSelect").value;
+        var plotType = document.querySelector('input[name="plotType"]:checked').value;
+        var storm = stormData[sysKey];
+
+        // Clear previous active layers
+        activeLayers.forEach(function(layer) {
+            map.removeLayer(layer);
+        });
+        activeLayers = [];
+
+        // Add track polyline
+        var trackLine = L.polyline(storm.coords, {
+            color: '#00f2fe',
+            weight: 4,
+            opacity: 0.85
+        }).addTo(map);
+        activeLayers.push(trackLine);
+
+        // Select image based on plot option
+        var plotImgUrl = (plotType === 'track') ? storm.track_img : storm.ensemble_img;
+        var titleType = (plotType === 'track') ? 'Track Plot' : 'Ensemble / Forecast Plot';
+
+        // Popup HTML content
+        var popupContent = `
+            <div class="popup-card">
+                <h4>${storm.name} - ${titleType}</h4>
+                <img src="${plotImgUrl}" alt="${titleType}">
+            </div>
+        `;
+
+        // Add storm marker with embedded popup plot
+        var marker = L.marker([storm.lat, storm.lon]).addTo(map);
+        marker.bindPopup(popupContent, { maxWidth: 360 });
+        activeLayers.push(marker);
+
+        // Auto fly/center map
+        map.flyTo([storm.lat, storm.lon], 6, {
+            animate: true,
+            duration: 1.2
+        });
+    }
+
+    // Initial load
+    updateView();
+</script>
+
+</body>
+</html>
