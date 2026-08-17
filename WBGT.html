@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>香港氣象追擊網 | 暑熱壓力指數 (WBGT) 實況監測</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0b0f19',
+                        cardBg: '#0f172a',
+                    },
+                },
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .model-card { @apply bg-slate-900 rounded-xl shadow-lg border border-slate-800 overflow-hidden; }
+            .nav-link { @apply px-4 py-3 text-slate-200 hover:text-white hover:bg-sky-600/30 text-sm font-medium transition-all duration-200 rounded-md whitespace-nowrap; }
+        }
+
+        body { 
+            background-color: #0b0f19; 
+            color: #f1f5f9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; 
+        } 
+    </style>
+
+    <!-- PyScript CSS & JS -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+</head>
+
+<body class="min-h-screen flex flex-col antialiased">
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-800 py-3 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
+        <div class="container mx-auto px-6 flex items-center justify-between">
+            <div>
+                <h1 class="text-lg md:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                    香港氣象追擊網
+                    <span class="text-xs px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-normal">HKMETC</span>
+                </h1>
+                <p class="text-xs text-slate-400 tracking-wider">HKMETC</p>
+            </div>
+            <div class="hidden md:flex items-center gap-4 text-xs text-slate-400">
+                <span class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    系統運作正常
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Bar -->
+    <nav class="bg-slate-900/80 border-b border-slate-800/80 sticky top-[65px] z-40 backdrop-blur-md">
+        <div class="container mx-auto px-4">
+            <ul class="flex items-center gap-1 overflow-x-auto py-1.5 scrollbar-none">
+                <li><a href="https://eknlau5897.github.io/met-chaser/index.html" class="nav-link">首頁</a></li>
+                <li><a href="https://zax41006-bot.github.io/GHMWS-TC-GIS/" class="nav-link">熱帶氣旋資訊</a></li>
+                <li><a href="https://eknlau5897.github.io/GHMWS-realtime/index.html" class="nav-link bg-sky-600/20 text-sky-400">實況天氣</a></li>
+                <li><a href="index.html" class="nav-link">全球模式預報</a></li>
+                <li><a href="https://eknlau5897.github.io/GHMWS-meso-model/index.html" class="nav-link">中尺度模式預報</a></li>
+                <li><a href="https://eknlau5897.github.io/HKMETC-ensemble/index.html" class="nav-link">集合模式預報</a></li>
+                <li><a href="https://eknlau5897.github.io/Earth_windy_2.0/demo/demo.html" class="nav-link">地球風場動畫2.0</a></li>
+                <li><a href="https://eknlau5897.github.io/GHMWS-nowcast/index.html" class="nav-link">臨近降雨預報</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-6 flex-grow">
+        <div class="text-center mb-6">
+            <h2 class="text-2xl md:text-3xl font-bold text-white mb-1">濕球黑球溫度 (WBGT) 暑熱指數實況</h2>
+            <p class="text-sky-400 text-sm font-medium mt-1">基於香港天文台開放數據自動計算與更新</p>
+        </div>
+
+        <div class="model-card p-4 relative">
+            <!-- Status Display -->
+            <div id="status" class="mb-4 p-3 bg-slate-950 border border-slate-800 rounded-lg text-sm text-sky-300 font-mono text-center flex items-center justify-center gap-2">
+                <svg class="animate-spin h-4 w-4 text-sky-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                正在初始化 PyScript 環境...
+            </div>
+
+            <!-- Map Container -->
+            <div id="map-container" class="w-full h-[600px] rounded-lg border border-slate-800 bg-slate-950 overflow-hidden relative">
+            </div>
+        </div>
+
+        <!-- Legend and Instructions Box -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <!-- Level Thresholds -->
+            <div class="model-card bg-slate-900/90 border border-slate-800 text-slate-300 p-5">
+                <p class="font-bold mb-3 text-base text-sky-400">WBGT 暑熱壓力等級說明</p>
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block border border-black/50"></span>
+                        <span>&lt; 27.7°C ： 注意 (綠色)</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-yellow-400 inline-block border border-black/50"></span>
+                        <span>27.7°C - 29.3°C ： 黃色工作暑熱警告</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-orange-500 inline-block border border-black/50"></span>
+                        <span>29.4°C - 31.0°C ： 紅色工作暑熱警告</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-red-600 inline-block border border-black/50"></span>
+                        <span>&ge; 31.1°C ： 黑色工作暑熱警告</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instructions -->
+            <div class="model-card bg-slate-900/90 border border-slate-800 text-slate-300 p-5">
+                <p class="font-bold mb-2 text-base text-sky-400">使用說明</p>
+                <div class="space-y-1 text-sm text-slate-400">
+                    <p>• 數據來源：香港天文台 (HKO) 即時氣象 API</p>
+                    <p>• 自動更新：每 10 分鐘自動重新獲取數據並更新地圖</p>
+                    <p>• 點擊地圖上的測站圖標可查看該處的氣溫、酷熱指數及估算 WBGT</p>
+                    <p>• 本頁面 WBGT 為基於氣溫與相對濕度之簡化估算，僅供參考</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 border-t border-slate-800 py-6 mt-12 text-center text-slate-400 text-xs">
+        <p class="text-sm font-semibold text-slate-200">香港氣象追擊網 HKMETC</p>
+        <p class="mt-2 text-slate-500">© 2026 香港氣象追擊網 版權所有</p>
+    </footer>
+
+    <!-- Configure Python Dependencies -->
+    <script type="py" config>
+        packages = ["pandas", "folium"]
+    </script>
+
+    <!-- Async Python Script -->
+    <script type="py" async>
+import asyncio
+from datetime import datetime
+import pandas as pd
+import folium
+from pyodide.http import pyfetch
+from js import document
+
+STATION_COORDINATES = {
+    "Hong Kong Observatory": [22.3006, 114.1742],
+    "King's Park": [22.3119, 114.1728],
+    "Wong Chuk Hang": [22.2478, 114.1736],
+    "Ta Kwu Ling": [22.5286, 114.1567],
+    "Lau Fau Shan": [22.4689, 113.9839],
+    "Tai Po": [22.4461, 114.1783],
+    "Sha Tin": [22.3858, 114.2089],
+    "Tuen Mun": [22.3925, 113.9744],
+    "Tseung Kwan O": [22.3158, 114.2556],
+    "Sai Kung": [22.3836, 114.2708],
+}
+
+URL = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=en"
+INTERVAL_SECONDS = 600
+
+async def fetch_data_and_render():
+    status_div = document.getElementById("status")
+    map_div = document.getElementById("map-container")
+
+    try:
+        status_div.innerHTML = '<span class="text-sky-400 animate-pulse">正在獲取香港天文台即時數據...</span>'
+        
+        response = await pyfetch(URL)
+        if not response.ok:
+            raise Exception(f"HTTP 錯誤碼: {response.status}")
+        
+        raw = await response.json()
+
+        temp_data = raw.get("temperature", {}).get("data", [])
+        humidity_data = raw.get("humidity", {}).get("data", [{}])
+        rh_val = float(humidity_data[0].get("value", 75)) if humidity_data else 75.0
+
+        converted_records = []
+        for item in temp_data:
+            name = item.get("place")
+            if name in STATION_COORDINATES:
+                tc = float(item.get("value"))
+                lat, lon = STATION_COORDINATES[name]
+
+                # Estimation Steps
+                tf = (tc * 9 / 5) + 32
+                hi_f = 0.5 * (tf + 61.0 + ((tf - 68.0) * 1.2) + (rh_val * 0.94))
+                hi_c = (hi_f - 32) * 5 / 9
+                estimated_wbgt = (0.76 * hi_c) - 1.25
+
+                converted_records.append({
+                    "station": name,
+                    "lat": lat,
+                    "lon": lon,
+                    "air_temp": tc,
+                    "heat_index": round(hi_c, 1),
+                    "wbgt": round(estimated_wbgt, 1),
+                })
+
+        df = pd.DataFrame(converted_records)
+
+        # Generate Dark-Themed Map matching HKMETC style
+        m = folium.Map(
+            location=[22.3527, 114.1272], 
+            zoom_start=11, 
+            tiles="CartoDB dark_matter"
+        )
+
+        for _, row in df.iterrows():
+            wbgt_val = row["wbgt"]
+            color = (
+                "#10b981" if wbgt_val < 27.7
+                else "#facc15" if wbgt_val < 29.4
+                else "#f97316" if wbgt_val < 31.1
+                else "#ef4444"
+            )
+
+            folium.CircleMarker(
+                location=[row["lat"], row["lon"]],
+                radius=10,
+                color="#0f172a",
+                weight=2,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.85,
+                popup=f"<div style='font-family:sans-serif; font-size:13px;'>"
+                      f"<b>{row['station']}</b><br>"
+                      f"氣溫: {row['air_temp']}°C<br>"
+                      f"酷熱指數: {row['heat_index']}°C<br>"
+                      f"<b>估算 WBGT: {wbgt_val}°C</b>"
+                      f"</div>",
+                tooltip=f"{row['station']}: WBGT {wbgt_val}°C",
+            ).add_to(m)
+
+        # Escaping quotes prior to string interpolation fixes the SyntaxError
+        map_html_escaped = m._repr_html_().replace('"', '&quot;')
+        map_div.innerHTML = f'<iframe srcdoc="{map_html_escaped}" style="width:100%; height:100%; border:none;"></iframe>'
+        
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        status_div.innerHTML = f'<span class="text-emerald-400">● 系統運作中</span> — 最後更新時間：{current_time}（每 10 分鐘自動更新）'
+
+    except Exception as e:
+        status_div.innerHTML = f'<span class="text-red-400">數據更新失敗: {e}</span>'
+
+async def main():
+    while True:
+        await fetch_data_and_render()
+        await asyncio.sleep(INTERVAL_SECONDS)
+
+await main()
+    </script>
+</body>
+</html>
