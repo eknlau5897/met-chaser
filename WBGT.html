@@ -157,7 +157,34 @@
             }
             throw new Error("Unable to fetch CSV through available proxies.");
         }
+        function addLegend(map) {
+            const legend = L.control({ position: 'bottomright' });
 
+            legend.onAdd = function () {
+                const div = L.DomUtil.create('div', 'info legend');
+        
+        // Define exact items with explicit values and colors
+                const legendItems = [
+                    { min: 0,    label: '< 29.0°C (綠色 - 注意)',  color: '#10B981' },
+                    { min: 29.0, label: '29.0 - 29.9°C (黃色)',   color: '#FACC15' },
+                    { min: 30.0, label: '30.0 - 30.9°C (橙色)',   color: '#F97316' },
+                    { min: 31.0, label: '31.0 - 32.9°C (紅色)',   color: '#DC2626' },
+                    { min: 33.0, label: '33.0 - 34.9°C (紫色)',   color: '#9333EA' },
+                    { min: 35.0, label: '35.0 - 35.9°C (深藍)',   color: '#312E81' },
+                    { min: 36.0, label: '≥ 36.0°C (白色 - 極端)',  color: '#FFFFFF' }
+                ];
+
+                div.innerHTML = '<strong style="display:block; margin-bottom:6px; font-size:13px;">WBGT 戶外指數圖例</strong>';
+
+                legendItems.forEach(item => {
+                    div.innerHTML += `<i style="background:${item.color}; border: 1px solid #475569;"></i> ${item.label}<br>`;
+                });
+
+                return div;
+            };
+
+            legend.addTo(map);
+        }
         async function initMap() {
             const statusDiv = document.getElementById("status");
             try {
