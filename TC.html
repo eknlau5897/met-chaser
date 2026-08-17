@@ -135,12 +135,12 @@
 
     <!-- Embedded Heatmap Color Legend -->
     <div class="legend">
-        <span>Strike Probability Scale (Fixed 150 km Radius, KDE × 100)</span>
+        <span>Strike Probability Scale (150 km Radius, 100% Boost)</span>
         <div class="legend-bar"></div>
         <div class="legend-labels">
-            <span>Low (10%)</span>
-            <span>Moderate (50%)</span>
-            <span>High (100%)</span>
+            <span>10%</span>
+            <span>50%</span>
+            <span>100%</span>
         </div>
     </div>
 </div>
@@ -227,7 +227,7 @@ def update_dashboard(event=None):
     # Calculate ensemble coordinates using Python backend
     m_lons, m_lats = compute_ensemble_coords(model=model_choice)
 
-    # 1. Heatmap layer calibrated to fixed 150 km with Scipy KDE multiplied by 100
+    # 1. Heatmap layer calibrated to 150 km with KDE probability intensity scaled by 100%
     if show_heatmap:
         pixel_radius = get_pixel_radius(storm_data["lat"], FIXED_RADIUS_KM, map_js)
         
@@ -240,13 +240,14 @@ def update_dashboard(event=None):
         
         # Evaluate raw KDE probability density and multiply by 100 (%)
         raw_kde_density = kernel(values)
-        kde_scaled_100 = (raw_kde_density / raw_kde_density.max()) * 100.0
+        kde_scaled = (raw_kde_density / raw_kde_density.max()) * 100.0
         
         heat_points = []
         for idx in range(len(all_lons_flat)):
             lat_val = all_lats_flat[idx]
             lon_val = all_lons_flat[idx]
-            prob_weight = float(kde_scaled_100[idx] / 100.0)
+            # Multiply weight by 100% scaling factor (ensures high color intensity saturation)
+            prob_weight = float(min((kde_scaled[idx] / 100.0) * 100.0, 100.0))
             heat_points.append([lat_val, lon_val, prob_weight])
 
         heat_layer = L.heatLayer(
@@ -255,6 +256,7 @@ def update_dashboard(event=None):
                 'radius': pixel_radius,
                 'blur': pixel_radius * 0.65,
                 'maxZoom': 10,
+                'max': 100.0,
                 'gradient': {
                     0.1: '#0000ff',
                     0.3: '#00ffff',
