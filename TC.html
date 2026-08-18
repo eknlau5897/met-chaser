@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tropycal Western Pacific Interactive Map</title>
+    <title>Tropycal Western Pacific Ensemble Map</title>
 
     <!-- PyScript Core -->
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
@@ -26,7 +26,7 @@
             color: #f8fafc;
             padding: 16px;
             border-radius: 12px;
-            width: 310px;
+            width: 320px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             border: 1px solid rgba(255, 255, 255, 0.12);
             backdrop-filter: blur(8px);
@@ -71,7 +71,6 @@
         }
     </style>
 
-    <!-- Configure Python packages for PyScript -->
     <py-config>
         packages = ["pandas", "pyodide-http"]
     </py-config>
@@ -79,19 +78,23 @@
 <body>
 
 <div id="info-panel">
-    <div class="title" id="storm-title">🌀 LOADING TROPYCAL DATA...</div>
-    <div class="info-row"><span>Target Basin:</span><b style="color:#38bdf8;">Western Pacific (WP)</b></div>
+    <div class="title" id="storm-title">🌀 LOADING ENSEMBLE DATA...</div>
+    <div class="info-row"><span>Basin:</span><b style="color:#38bdf8;">Western Pacific (WP)</b></div>
     <div class="info-row"><span>Observed Points:</span><b id="obs-count" style="color:#10b981;">-</b></div>
-    <div class="info-row"><span>Forecast Points:</span><b id="fcst-count" style="color:#38bdf8;">-</b></div>
+    <div class="info-row"><span>Ensemble Members:</span><b id="ens-count" style="color:#a855f7;">-</b></div>
 
     <div class="legend">
         <div class="legend-item">
             <div class="legend-line" style="background: #10b981;"></div>
-            <span>Observed / Tropycal Track (Solid Line)</span>
+            <span>Observed Track (Solid Green)</span>
         </div>
         <div class="legend-item">
-            <div class="legend-line" style="border-top: 3px dashed #38bdf8;"></div>
-            <span>Fixed Forecast Track (Dashed Line)</span>
+            <div class="legend-line" style="background: #ef4444;"></div>
+            <span>Ensemble Mean Track (Solid Red)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-line" style="border-top: 2px dashed #a855f7;"></div>
+            <span>Ensemble Members (Dashed Purple)</span>
         </div>
     </div>
 </div>
@@ -100,6 +103,7 @@
 
 <script type="py">
 import json
+import random
 import pyodide_http
 import pandas as pd
 from js import document, L
@@ -108,68 +112,97 @@ from pyodide.ffi import to_js
 # Enable HTTP fetch in PyScript browser context
 pyodide_http.patch_all()
 
-# 1. FIXED FORECAST TRACK DATA
-forecast_data = [
-    {"hour": 0,  "lat": 18.0, "lon": 120.0, "mslp": 990.0},
-    {"hour": 12, "lat": 18.8, "lon": 118.5, "mslp": 985.0},
-    {"hour": 24, "lat": 19.6, "lon": 117.1, "mslp": 978.0},
-    {"hour": 36, "lat": 20.5, "lon": 115.8, "mslp": 970.0},
-    {"hour": 48, "lat": 21.3, "lon": 114.5, "mslp": 965.0},
-    {"hour": 72, "lat": 22.2, "lon": 113.2, "mslp": 960.0}
+# 1. OBSERVED TRACK DATA
+observed_pts = [
+    {"lat": 14.2, "lon": 125.0, "time": "2026-08-15 00Z"},
+    {"lat": 15.0, "lon": 123.8, "time": "2026-08-15 12Z"},
+    {"lat": 16.1, "lon": 122.5, "time": "2026-08-16 00Z"},
+    {"lat": 17.0, "lon": 121.2, "time": "2026-08-16 12Z"},
+    {"lat": 18.0, "lon": 120.0, "time": "2026-08-17 00Z"}
 ]
 
-# 2. FETCH TROPYCAL WP BASIN REAL-TIME DATA VIA WEB API
-try:
-    url = "https://www.nhc.noaa.gov/gis-atcf/archive/active_storms.json"
-    df_raw = pd.read_json(url)
+storm_name = "WESTERN PACIFIC SYSTEM 70W"
+start_lat = observed_pts[-1]["lat"]
+start_lon = observed_pts[-1]["lon"]
+
+# 2. GENERATE ENSEMBLE MEMBER TRACKS (20 Members)
+num_members = 20
+forecast_hours = [0, 12, 24, 36, 48, 72, 96, 120]
+ensemble_members = []
+
+# Deterministic base trajectory offsets per timestep
+base_lat_deltas = [0.0, 0.8, 1.6, 2.5, 3.3, 4.8, 6.2, 7.5]
+base_lon_deltas = [0.0, -1.2, -2.5, -3.8, -5.0, -7.1, -9.0, -11.0]
+
+random.seed(42)  # Fixed seed for reproducibility
+
+for member_id in range(1, num_members + 1):
+    member_track = []
+    # Add random spread to simulate model perturbation
+    lat_perturb = random.uniform(-0.15, 0.15)
+    lon_perturb = random.uniform(-0.15, 0.15)
     
-    if 'basin' in df_raw.columns:
-        wp_storms = df_raw[df_raw['basin'] == 'WP']
-    else:
-        wp_storms = pd.DataFrame()
+    for idx, fhr in enumerate(forecast_hours):
+        spread_factor = (fhr / 24.0) ** 1.2
+        pt_lat = start_lat + base_lat_deltas[idx] + (lat_perturb * spread_factor) + random.uniform(-0.1, 0.1) * (fhr / 48.0)
+        pt_lon = start_lon + base_lon_deltas[idx] + (lon_perturb * spread_factor) + random.uniform(-0.1, 0.1) * (fhr / 48.0)
+        
+        member_track.append({
+            "fhr": fhr,
+            "lat": round(pt_lat, 3),
+            "lon": round(pt_lon, 3)
+        })
+    
+    ensemble_members.append({"member": member_id, "track": member_track})
 
-    if not wp_storms.empty:
-        storm_name = str(wp_storms.iloc[0].get('name', 'WP SYSTEM'))
-        observed_pts = wp_storms[['lat', 'lon']].to_dict('records')
-    else:
-        storm_name = "WESTERN PACIFIC SYSTEM 70W"
-        observed_pts = [
-            {"lat": 14.2, "lon": 125.0, "time": "2026-08-15 00Z"},
-            {"lat": 15.0, "lon": 123.8, "time": "2026-08-15 12Z"},
-            {"lat": 16.1, "lon": 122.5, "time": "2026-08-16 00Z"},
-            {"lat": 17.0, "lon": 121.2, "time": "2026-08-16 12Z"},
-            {"lat": 18.0, "lon": 120.0, "time": "2026-08-17 00Z"}
-        ]
-except Exception as e:
-    storm_name = "WESTERN PACIFIC SYSTEM 70W"
-    observed_pts = [
-        {"lat": 14.2, "lon": 125.0, "time": "2026-08-15 00Z"},
-        {"lat": 15.0, "lon": 123.8, "time": "2026-08-15 12Z"},
-        {"lat": 16.1, "lon": 122.5, "time": "2026-08-16 00Z"},
-        {"lat": 17.0, "lon": 121.2, "time": "2026-08-16 12Z"},
-        {"lat": 18.0, "lon": 120.0, "time": "2026-08-17 00Z"}
-    ]
+# Calculate Ensemble Mean Track
+ensemble_mean = []
+for idx, fhr in enumerate(forecast_hours):
+    mean_lat = sum(m["track"][idx]["lat"] for m in ensemble_members) / num_members
+    mean_lon = sum(m["track"][idx]["lon"] for m in ensemble_members) / num_members
+    ensemble_mean.append({"fhr": fhr, "lat": round(mean_lat, 3), "lon": round(mean_lon, 3)})
 
-# Link forecast track start to the last observed point
-forecast_data[0]["lat"] = observed_pts[-1]["lat"]
-forecast_data[0]["lon"] = observed_pts[-1]["lon"]
-
-# 3. RENDER LEAFLET MAP
+# 3. RENDER MAP
 document.getElementById('storm-title').innerText = f"🌀 {storm_name}"
 document.getElementById('obs-count').innerText = str(len(observed_pts))
-document.getElementById('fcst-count').innerText = str(len(forecast_data))
+document.getElementById('ens-count').innerText = f"{num_members} Members"
 
-center_lat = observed_pts[-1]["lat"]
-center_lon = observed_pts[-1]["lon"]
-
-map_js = L.map('map', to_js({'zoomControl': False})).setView(L.latLng(center_lat, center_lon), 6)
+map_js = L.map('map', to_js({'zoomControl': False})).setView(L.latLng(start_lat, start_lon), 6)
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', to_js({
     'maxZoom': 18,
-    'attribution': 'CartoDB | Tropycal API Engine'
+    'attribution': 'CartoDB | Tropycal Ensemble Engine'
 })).addTo(map_js)
 
 L.control.zoom(to_js({'position': 'topright'})).addTo(map_js)
+
+# Plot Ensemble Perturbation Tracks (Dashed Purple Lines)
+for member in ensemble_members:
+    coords = [[p["lat"], p["lon"]] for p in member["track"]]
+    L.polyline(to_js(coords), to_js({
+        'color': '#a855f7',
+        'weight': 1.5,
+        'opacity': 0.45,
+        'dashArray': '4, 4'
+    })).addTo(map_js)
+
+# Plot Ensemble Mean Track (Solid Red Line)
+mean_coords = [[p["lat"], p["lon"]] for p in ensemble_mean]
+L.polyline(to_js(mean_coords), to_js({
+    'color': '#ef4444',
+    'weight': 4,
+    'opacity': 0.95
+})).addTo(map_js)
+
+for pt in ensemble_mean[1:]:
+    marker = L.circleMarker(L.latLng(pt["lat"], pt["lon"]), to_js({
+        'radius': 5,
+        'fillColor': '#ef4444',
+        'color': '#ffffff',
+        'weight': 1,
+        'fillOpacity': 0.9
+    })).addTo(map_js)
+    marker.bindPopup(f"<b>Ensemble Mean</b><br>Lead Time: +{pt['fhr']}h<br>Lat: {pt['lat']}°N, Lon: {pt['lon']}°E")
 
 # Plot Observed Track (Solid Green Line)
 obs_coords = [[p["lat"], p["lon"]] for p in observed_pts]
@@ -178,8 +211,8 @@ L.polyline(to_js(obs_coords), to_js({'color': '#10b981', 'weight': 4, 'opacity':
 for idx, pt in enumerate(observed_pts):
     is_last = (idx == len(observed_pts) - 1)
     marker = L.circleMarker(L.latLng(pt["lat"], pt["lon"]), to_js({
-        'radius': 8 if is_last else 4,
-        'fillColor': '#ef4444' if is_last else '#10b981',
+        'radius': 7 if is_last else 4,
+        'fillColor': '#10b981',
         'color': '#ffffff',
         'weight': 1,
         'fillOpacity': 0.95
@@ -188,20 +221,6 @@ for idx, pt in enumerate(observed_pts):
     time_str = pt.get("time", "Observed Position")
     marker.bindPopup(f"<b>{storm_name}</b><br>Time: {time_str}<br>Lat: {pt['lat']}°N, Lon: {pt['lon']}°E")
 
-# Plot Forecast Track (Dashed Cyan Line)
-fcst_coords = [[p["lat"], p["lon"]] for p in forecast_data]
-L.polyline(to_js(fcst_coords), to_js({'color': '#38bdf8', 'weight': 3, 'dashArray': '6, 6', 'opacity': 0.85})).addTo(map_js)
-
-for pt in forecast_data[1:]:
-    marker = L.circleMarker(L.latLng(pt["lat"], pt["lon"]), to_js({
-        'radius': 5,
-        'fillColor': '#38bdf8',
-        'color': '#ffffff',
-        'weight': 1.5,
-        'fillOpacity': 0.9
-    })).addTo(map_js)
-    
-    marker.bindPopup(f"<b>Forecast</b><br>Lead Time: +{pt['hour']}h<br>Lat: {pt['lat']}°N, Lon: {pt['lon']}°E<br>MSLP: {pt['mslp']} hPa")
 </script>
 
 </body>
