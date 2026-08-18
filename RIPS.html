@@ -48,6 +48,11 @@
             justify-content: center;
         }
     </style>
+
+    <!-- Configure Packages via <py-config> -->
+    <py-config>
+        packages = ["pandas", "matplotlib"]
+    </py-config>
 </head>
 <body>
 
@@ -59,12 +64,7 @@
     <!-- Plot Output Container -->
     <div id="plot-container"></div>
 
-    <!-- Package Configuration (Only Pure-Python / WebAssembly Compatible Packages) -->
-    <script type="py" config>
-        packages = ["pandas", "matplotlib"]
-    </script>
-
-    <!-- PyScript Async Implementation -->
+    <!-- PyScript Logic -->
     <script type="py">
         import re
         import asyncio
