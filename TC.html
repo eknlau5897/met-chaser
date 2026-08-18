@@ -177,8 +177,8 @@ import math
 import random
 import pyodide_http
 import pandas as pd
-from js import document, L, fetch, Object
-from pyodide.ffi import to_js, create_proxy
+from js import document, L, fetch, JSON
+from pyodide.ffi import create_proxy
 
 pyodide_http.patch_all()
 
@@ -200,9 +200,14 @@ FALLBACK_DATA = {
     ]
 }
 
-def js_obj(py_dict):
-    """ Converts Python dictionary to plain JS Object so Leaflet reads styling attributes """
-    return Object.fromEntries(to_js(py_dict))
+# Palette of colors to give every ensemble member a distinct "spaghetti strand" color
+SPAGHETTI_COLORS = [
+    "#38bdf8", "#818cf8", "#c084fc", "#f472b6", "#fb7185",
+    "#34d399", "#a3e635", "#facc15", "#fb923c", "#22d3ee"
+]
+
+def to_js_obj(py_data):
+    return JSON.parse(json.dumps(py_data))
 
 def parse_atcf_bdeck_robust(text_data):
     lines = text_data.strip().split('\n')
@@ -244,7 +249,7 @@ def parse_atcf_bdeck_robust(text_data):
 
     return sorted(fix_dict.values(), key=lambda x: x['time'])
 
-def compute_ensemble_probabilities(start_lat, start_lon, system_seed=94, num_members=30, radius_deg=1.1):
+def compute_spaghetti_ensemble(start_lat, start_lon, system_seed=94, num_members=40):
     forecast_hours = [0, 12, 24, 36, 48, 72, 96, 120]
     base_lat_deltas = [0.0, 0.8, 1.7, 2.7, 3.6, 5.2, 6.8, 8.2]
     base_lon_deltas = [0.0, -1.1, -2.4, -3.8, -5.2, -7.5, -9.8, -11.8]
@@ -254,13 +259,13 @@ def compute_ensemble_probabilities(start_lat, start_lon, system_seed=94, num_mem
 
     for m_id in range(1, num_members + 1):
         track = []
-        lat_p = random.uniform(-0.25, 0.25)
-        lon_p = random.uniform(-0.25, 0.25)
+        lat_p = random.uniform(-0.4, 0.4)
+        lon_p = random.uniform(-0.4, 0.4)
 
         for idx, fhr in enumerate(forecast_hours):
-            spread = (fhr / 24.0) ** 1.2
-            pt_lat = start_lat + base_lat_deltas[idx] + (lat_p * spread) + random.uniform(-0.1, 0.1) * (fhr / 48.0)
-            pt_lon = start_lon + base_lon_deltas[idx] + (lon_p * spread) + random.uniform(-0.1, 0.1) * (fhr / 48.0)
+            spread = (fhr / 24.0) ** 1.3
+            pt_lat = start_lat + base_lat_deltas[idx] + (lat_p * spread) + random.uniform(-0.15, 0.15) * (fhr / 36.0)
+            pt_lon = start_lon + base_lon_deltas[idx] + (lon_p * spread) + random.uniform(-0.15, 0.15) * (fhr / 36.0)
             track.append({"fhr": fhr, "lat": round(pt_lat, 3), "lon": round(pt_lon, 3)})
 
         ensemble_members.append(track)
@@ -271,47 +276,7 @@ def compute_ensemble_probabilities(start_lat, start_lon, system_seed=94, num_mem
         m_lon = sum(m[idx]["lon"] for m in ensemble_members) / num_members
         ensemble_mean.append({"fhr": fhr, "lat": round(m_lat, 3), "lon": round(m_lon, 3)})
 
-    all_lats = [pt["lat"] for m in ensemble_members for pt in m]
-    all_lons = [pt["lon"] for m in ensemble_members for pt in m]
-
-    min_lat, max_lat = min(all_lats) - 0.5, max(all_lats) + 0.5
-    min_lon, max_lon = min(all_lons) - 0.5, max(all_lons) + 0.5
-
-    grid_step = 0.5
-    grid_probs = []
-
-    curr_lat = min_lat
-    while curr_lat <= max_lat:
-        curr_lon = min_lon
-        while curr_lon <= max_lon:
-            hits = 0
-            for track in ensemble_members:
-                for pt in track:
-                    dist = math.sqrt((pt["lat"] - curr_lat)**2 + (pt["lon"] - curr_lon)**2)
-                    if dist <= radius_deg:
-                        hits += 1
-                        break
-            prob = (hits / num_members) * 100.0
-            if prob >= 10.0:
-                grid_probs.append({
-                    "lat": round(curr_lat, 2),
-                    "lon": round(curr_lon, 2),
-                    "prob": round(prob, 1)
-                })
-            curr_lon += grid_step
-        curr_lat += grid_step
-
-    return ensemble_members, ensemble_mean, grid_probs
-
-def get_prob_color(prob):
-    if prob >= 80.0:
-        return "#ef4444"
-    elif prob >= 50.0:
-        return "#f97316"
-    elif prob >= 30.0:
-        return "#eab308"
-    else:
-        return "#3b82f6"
+    return ensemble_members, ensemble_mean
 
 async def fetch_atcf_data(system_id):
     num = system_id[:-1]
@@ -365,68 +330,58 @@ async def load_invest_data(event=None):
         document.getElementById('data-source').style.background = "#6b7280"
 
     if map_instance is None:
-        map_instance = L.map('map', js_obj({'zoomControl': False})).setView(L.latLng(latest["lat"], latest["lon"]), 6)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', js_obj({
+        map_instance = L.map('map', to_js_obj({'zoomControl': False})).setView(L.latLng(latest["lat"], latest["lon"]), 6)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', to_js_obj({
             'maxZoom': 18,
             'attribution': 'CartoDB | NOAA ATCF Invest Tracker'
         })).addTo(map_instance)
-        L.control.zoom(js_obj({'position': 'topright'})).addTo(map_instance)
+        L.control.zoom(to_js_obj({'position': 'topright'})).addTo(map_instance)
         layer_group = L.layerGroup().addTo(map_instance)
     else:
         layer_group.clearLayers()
         map_instance.setView(L.latLng(latest["lat"], latest["lon"]), 6)
 
-    ensemble_tracks, ensemble_mean, grid_probs = compute_ensemble_probabilities(latest["lat"], latest["lon"], system_seed=seed, num_members=30)
+    ensemble_tracks, ensemble_mean = compute_spaghetti_ensemble(latest["lat"], latest["lon"], system_seed=seed, num_members=40)
 
-    # 1. Render Strike Probability Heat Circles (with fixed JS Object option parsing)
-    for grid in grid_probs:
-        p_color = get_prob_color(grid["prob"])
-        circle = L.circle(L.latLng(grid["lat"], grid["lon"]), js_obj({
-            'radius': 35000,
-            'fillColor': p_color,
-            'color': p_color,
-            'weight': 1,
-            'fillOpacity': 0.45
+    # 1. SPAGHETTI STRANDS (Individual Member Tracks)
+    for idx, track in enumerate(ensemble_tracks):
+        coords = to_js_obj([[pt["lat"], pt["lon"]] for pt in track])
+        color = SPAGHETTI_COLORS[idx % len(SPAGHETTI_COLORS)]
+        
+        line = L.polyline(coords, to_js_obj({
+            'color': color,
+            'weight': 2,
+            'opacity': 0.75
         })).addTo(layer_group)
-        circle.bindPopup(f"<b>{system_id} Strike Risk</b><br>Lat: {grid['lat']}°N, Lon: {grid['lon']}°E<br>Probability: <b>{grid['prob']}%</b>")
+        line.bindPopup(f"<b>Ensemble Member #{idx + 1}</b><br>Target: {track[-1]['lat']}°N, {track[-1]['lon']}°E")
 
-    # 2. Render Thin Ensemble Tracks (Purple dashed lines)
-    for track in ensemble_tracks:
-        coords = to_js([[pt["lat"], pt["lon"]] for pt in track])
-        L.polyline(coords, js_obj({
-            'color': '#a855f7',
-            'weight': 1,
-            'opacity': 0.4,
-            'dashArray': '3, 3'
-        })).addTo(layer_group)
-
-    # 3. Render Ensemble Mean Track (Red line)
-    mean_coords = to_js([[pt["lat"], pt["lon"]] for pt in ensemble_mean])
-    L.polyline(mean_coords, js_obj({
-        'color': '#ef4444',
-        'weight': 4,
-        'opacity': 0.95
+    # 2. ENSEMBLE MEAN TRACK (Thick High-Contrast Black/White Line)
+    mean_coords = to_js_obj([[pt["lat"], pt["lon"]] for pt in ensemble_mean])
+    L.polyline(mean_coords, to_js_obj({
+        'color': '#ffffff',
+        'weight': 5,
+        'opacity': 1.0
     })).addTo(layer_group)
 
-    # 4. Render Observed Track (Green solid line)
-    obs_coords = to_js([[pt["lat"], pt["lon"]] for pt in observed_pts])
-    L.polyline(obs_coords, js_obj({
+    # 3. OBSERVED PAST TRACK (Solid Green Line)
+    obs_coords = to_js_obj([[pt["lat"], pt["lon"]] for pt in observed_pts])
+    L.polyline(obs_coords, to_js_obj({
         'color': '#10b981',
         'weight': 4,
-        'opacity': 0.95
+        'opacity': 1.0
     })).addTo(layer_group)
 
-    # 5. Render Fix Markers
+    # 4. OBSERVED FIX MARKERS
     for idx, pt in enumerate(observed_pts):
         is_last = (idx == len(observed_pts) - 1)
-        marker = L.circleMarker(L.latLng(pt["lat"], pt["lon"]), js_obj({
+        marker = L.circleMarker(L.latLng(pt["lat"], pt["lon"]), to_js_obj({
             'radius': 7 if is_last else 4,
             'fillColor': '#ef4444' if is_last else '#10b981',
             'color': '#ffffff',
             'weight': 1,
             'fillOpacity': 1.0
         })).addTo(layer_group)
-        marker.bindPopup(f"<b>Invest {system_id}</b><br>Time: {pt['time']}<br>Position: {pt['lat']}°N, {pt['lon']}°E<br>Wind: {pt['vmax']} kts")
+        marker.bindPopup(f"<b>Invest {system_id} Fix</b><br>Time: {pt['time']}<br>Pos: {pt['lat']}°N, {pt['lon']}°E")
 
 refresh_proxy = create_proxy(load_invest_data)
 document.getElementById('refresh-btn').addEventListener('click', refresh_proxy)
