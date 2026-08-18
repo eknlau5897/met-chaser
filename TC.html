@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invest 95W Realtime & Ensemble Tracker</title>
+    <title>Invest 94W Realtime Ensemble Strike Probability</title>
 
     <!-- PyScript Core -->
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
@@ -26,7 +26,7 @@
             color: #f8fafc;
             padding: 16px;
             border-radius: 12px;
-            width: 320px;
+            width: 330px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             border: 1px solid rgba(255, 255, 255, 0.12);
             backdrop-filter: blur(8px);
@@ -93,11 +93,20 @@
             margin-bottom: 4px;
         }
 
-        .legend-line {
-            width: 24px;
-            height: 3px;
-            margin-right: 8px;
-            border-radius: 2px;
+        .prob-bar {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(to right, #3b82f6, #eab308, #f97316, #ef4444);
+            margin-top: 4px;
+            margin-bottom: 4px;
+        }
+
+        .prob-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            color: #64748b;
         }
     </style>
 
@@ -109,27 +118,32 @@
 
 <div id="info-panel">
     <div class="title">
-        <span>🌀 INVEST 95W (WP)</span>
+        <span>🌀 INVEST 94W (WP)</span>
         <span class="status-badge" id="data-source">FETCHING...</span>
     </div>
     <div class="info-row"><span>Latest Position:</span><b id="latest-pos" style="color:#38bdf8;">-</b></div>
     <div class="info-row"><span>Observed Fixes:</span><b id="obs-count" style="color:#10b981;">-</b></div>
-    <div class="info-row"><span>Ensemble Members:</span><b id="ens-count" style="color:#a855f7;">20 Tracks</b></div>
+    <div class="info-row"><span>Ensemble Size:</span><b id="ens-count" style="color:#a855f7;">30 Members</b></div>
+    <div class="info-row"><span>Strike Radius:</span><b style="color:#f59e0b;">120 km (~1.1°)</b></div>
 
-    <button class="btn-refresh" id="refresh-btn">🔄 Refresh Realtime 95W Data</button>
+    <button class="btn-refresh" id="refresh-btn">🔄 Refresh Realtime 94W Data</button>
 
     <div class="legend">
-        <div class="legend-item">
-            <div class="legend-line" style="background: #10b981;"></div>
-            <span>Observed Track (Realtime B-Deck)</span>
+        <div style="font-size:11px; font-weight:600; color:#cbd5e1; margin-bottom:4px;">Strike Probability Scale:</div>
+        <div class="prob-bar"></div>
+        <div class="prob-labels">
+            <span>10%</span>
+            <span>30%</span>
+            <span>60%</span>
+            <span>>80%</span>
+        </div>
+        <div class="legend-item" style="margin-top:8px;">
+            <div style="width:12px; height:12px; background:#10b981; border-radius:50%; margin-right:8px;"></div>
+            <span>Observed Fixes (ATCF 94W)</span>
         </div>
         <div class="legend-item">
-            <div class="legend-line" style="background: #ef4444;"></div>
+            <div style="width:24px; height:3px; background:#ef4444; margin-right:8px;"></div>
             <span>Ensemble Mean Track</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-line" style="border-top: 2px dashed #a855f7;"></div>
-            <span>Ensemble Perturbed Members</span>
         </div>
     </div>
 </div>
@@ -138,6 +152,7 @@
 
 <script type="py">
 import json
+import math
 import random
 import pyodide_http
 import pandas as pd
@@ -146,12 +161,11 @@ from pyodide.ffi import to_js, create_proxy
 
 pyodide_http.patch_all()
 
-# Map Instance Global Reference
 map_instance = None
 layer_group = None
 
 def parse_atcf_bdeck(text_data):
-    """ Parse NOAA / JTWC ATCF B-Deck format for Invest 95W """
+    """ Parse NOAA / JTWC ATCF B-Deck format specifically for Invest 94W """
     observed_pts = []
     lines = text_data.strip().split('\n')
     
@@ -161,12 +175,10 @@ def parse_atcf_bdeck(text_data):
             raw_lat = parts[6]
             raw_lon = parts[7]
             if raw_lat and raw_lon and len(raw_lat) >= 3 and len(raw_lon) >= 3:
-                # Lat conversion (e.g. 154N -> 15.4)
                 lat_val = float(raw_lat[:-1]) / 10.0
                 if raw_lat[-1] == 'S':
                     lat_val = -lat_val
                 
-                # Lon conversion (e.g. 1382E -> 138.2)
                 lon_val = float(raw_lon[:-1]) / 10.0
                 if raw_lon[-1] == 'W':
                     lon_val = 360.0 - lon_val
@@ -182,47 +194,89 @@ def parse_atcf_bdeck(text_data):
                 })
     return observed_pts
 
-def plot_ensemble(start_lat, start_lon, num_members=20):
-    """ Generate and plot ensemble track members initialized from the latest 95W fix """
+def compute_ensemble_probabilities(start_lat, start_lon, num_members=30, radius_deg=1.1):
+    """ Generates 30 ensemble perturbed tracks and computes spatial strike probability grid """
     forecast_hours = [0, 12, 24, 36, 48, 72, 96, 120]
-    base_lat_deltas = [0.0, 0.7, 1.5, 2.4, 3.2, 4.6, 6.0, 7.3]
-    base_lon_deltas = [0.0, -1.0, -2.2, -3.5, -4.8, -6.8, -8.5, -10.2]
+    base_lat_deltas = [0.0, 0.8, 1.7, 2.7, 3.6, 5.2, 6.8, 8.2]
+    base_lon_deltas = [0.0, -1.1, -2.4, -3.8, -5.2, -7.5, -9.8, -11.8]
 
-    random.seed(95)
+    random.seed(94)
     ensemble_members = []
 
     for m_id in range(1, num_members + 1):
         track = []
-        lat_perturb = random.uniform(-0.2, 0.2)
-        lon_perturb = random.uniform(-0.2, 0.2)
+        lat_p = random.uniform(-0.25, 0.25)
+        lon_p = random.uniform(-0.25, 0.25)
 
         for idx, fhr in enumerate(forecast_hours):
-            spread = (fhr / 24.0) ** 1.15
-            pt_lat = start_lat + base_lat_deltas[idx] + (lat_perturb * spread) + random.uniform(-0.1, 0.1) * (fhr / 48.0)
-            pt_lon = start_lon + base_lon_deltas[idx] + (lon_perturb * spread) + random.uniform(-0.1, 0.1) * (fhr / 48.0)
+            spread = (fhr / 24.0) ** 1.2
+            pt_lat = start_lat + base_lat_deltas[idx] + (lat_p * spread) + random.uniform(-0.1, 0.1) * (fhr / 48.0)
+            pt_lon = start_lon + base_lon_deltas[idx] + (lon_p * spread) + random.uniform(-0.1, 0.1) * (fhr / 48.0)
             track.append({"fhr": fhr, "lat": round(pt_lat, 3), "lon": round(pt_lon, 3)})
 
-        ensemble_members.append({"member": m_id, "track": track})
+        ensemble_members.append(track)
 
-    # Compute Ensemble Mean
+    # Calculate Ensemble Mean Track
     ensemble_mean = []
     for idx, fhr in enumerate(forecast_hours):
-        mean_lat = sum(m["track"][idx]["lat"] for m in ensemble_members) / num_members
-        mean_lon = sum(m["track"][idx]["lon"] for m in ensemble_members) / num_members
-        ensemble_mean.append({"fhr": fhr, "lat": round(mean_lat, 3), "lon": round(mean_lon, 3)})
+        m_lat = sum(m[idx]["lat"] for m in ensemble_members) / num_members
+        m_lon = sum(m[idx]["lon"] for m in ensemble_members) / num_members
+        ensemble_mean.append({"fhr": fhr, "lat": round(m_lat, 3), "lon": round(m_lon, 3)})
 
-    return ensemble_members, ensemble_mean
+    # Calculate Grid Strike Probabilities (Percentage passing within radius_deg)
+    all_lats = [pt["lat"] for m in ensemble_members for pt in m]
+    all_lons = [pt["lon"] for m in ensemble_members for pt in m]
 
-async def load_realtime_95w(event=None):
+    min_lat, max_lat = min(all_lats) - 0.5, max(all_lats) + 0.5
+    min_lon, max_lon = min(all_lons) - 0.5, max(all_lons) + 0.5
+
+    grid_step = 0.5
+    grid_probs = []
+
+    curr_lat = min_lat
+    while curr_lat <= max_lat:
+        curr_lon = min_lon
+        while curr_lon <= max_lon:
+            hits = 0
+            for track in ensemble_members:
+                for pt in track:
+                    dist = math.sqrt((pt["lat"] - curr_lat)**2 + (pt["lon"] - curr_lon)**2)
+                    if dist <= radius_deg:
+                        hits += 1
+                        break
+            prob = (hits / num_members) * 100.0
+            if prob >= 10.0:  # Only render points with >= 10% strike probability
+                grid_probs.append({
+                    "lat": round(curr_lat, 2),
+                    "lon": round(curr_lon, 2),
+                    "prob": round(prob, 1)
+                })
+            curr_lon += grid_step
+        curr_lat += grid_step
+
+    return ensemble_members, ensemble_mean, grid_probs
+
+def get_prob_color(prob):
+    """ Map strike probability percentage to risk color gradient """
+    if prob >= 80.0:
+        return "#ef4444"  # Red (Extreme)
+    elif prob >= 50.0:
+        return "#f97316"  # Orange (High)
+    elif prob >= 30.0:
+        return "#eab308"  # Yellow (Moderate)
+    else:
+        return "#3b82f6"  # Blue (Low)
+
+async def load_realtime_94w(event=None):
     global map_instance, layer_group
-    
+
     document.getElementById('data-source').innerText = "FETCHING..."
     document.getElementById('data-source').style.background = "#d97706"
 
-    # NOAA ATCF B-Deck endpoint for 95W via CORS Proxy
-    target_url = "https://ftp.nhc.noaa.gov/atcf/btk/bwp952026.dat"
+    # NOAA ATCF B-Deck file target for Invest 94W
+    target_url = "https://ftp.nhc.noaa.gov/atcf/btk/bwp942026.dat"
     proxy_url = f"https://api.allorigins.win/raw?url={target_url}"
-    
+
     observed_pts = []
     is_live = False
 
@@ -230,23 +284,23 @@ async def load_realtime_95w(event=None):
         response = await fetch(proxy_url)
         if response.status == 200:
             text_content = await response.text()
-            if "WP, 95" in text_content or "95W" in text_content:
+            if "WP, 94" in text_content or "94W" in text_content:
                 observed_pts = parse_atcf_bdeck(text_content)
                 if len(observed_pts) > 0:
                     is_live = True
     except Exception as err:
-        print("Realtime fetch fallback triggered:", err)
+        print("Realtime fetch fallback triggered for 94W:", err)
 
-    # Fallback dataset if 95W file is offline or not yet initialized in ATCF archive
+    # Active fallback dataset for Invest 94W
     if not observed_pts:
         observed_pts = [
-            {"lat": 13.5, "lon": 138.0, "time": "2026081700", "vmax": 20},
-            {"lat": 14.2, "lon": 136.8, "time": "2026081712", "vmax": 25},
-            {"lat": 15.0, "lon": 135.5, "time": "2026081800", "vmax": 25},
-            {"lat": 15.8, "lon": 134.1, "time": "2026081812", "vmax": 30}
+            {"lat": 11.5, "lon": 136.2, "time": "2026081700", "vmax": 20},
+            {"lat": 12.1, "lon": 134.8, "time": "2026081712", "vmax": 20},
+            {"lat": 12.8, "lon": 133.5, "time": "2026081800", "vmax": 25},
+            {"lat": 13.5, "lon": 132.0, "time": "2026081812", "vmax": 30}
         ]
 
-    # Update UI Panel
+    # UI updates
     document.getElementById('obs-count').innerText = str(len(observed_pts))
     latest = observed_pts[-1]
     document.getElementById('latest-pos').innerText = f"{latest['lat']}°N, {latest['lon']}°E"
@@ -255,15 +309,15 @@ async def load_realtime_95w(event=None):
         document.getElementById('data-source').innerText = "LIVE ATCF"
         document.getElementById('data-source').style.background = "#059669"
     else:
-        document.getElementById('data-source').innerText = "SIMULATED 95W"
+        document.getElementById('data-source').innerText = "SIMULATED 94W"
         document.getElementById('data-source').style.background = "#6b7280"
 
-    # Initialize or reset map layers
+    # Map initialization
     if map_instance is None:
         map_instance = L.map('map', to_js({'zoomControl': False})).setView(L.latLng(latest["lat"], latest["lon"]), 6)
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', to_js({
             'maxZoom': 18,
-            'attribution': 'CartoDB | NOAA ATCF 95W'
+            'attribution': 'CartoDB | NOAA ATCF 94W Probabilities'
         })).addTo(map_instance)
         L.control.zoom(to_js({'position': 'topright'})).addTo(map_instance)
         layer_group = L.layerGroup().addTo(map_instance)
@@ -271,8 +325,41 @@ async def load_realtime_95w(event=None):
         layer_group.clearLayers()
         map_instance.setView(L.latLng(latest["lat"], latest["lon"]), 6)
 
-    # 1. Plot Observed Track (Solid Green Line)
-    obs_coords = [[p["lat"], p["lon"]] for p in observed_pts]
+    # Calculate 30-member Ensemble & Probability Grid
+    ensemble_tracks, ensemble_mean, grid_probs = compute_ensemble_probabilities(latest["lat"], latest["lon"], num_members=30)
+
+    # 1. Render Strike Probability Heat Circles
+    for grid in grid_probs:
+        p_color = get_prob_color(grid["prob"])
+        circle = L.circle(L.latLng(grid["lat"], grid["lon"]), to_js({
+            'radius': 35000,
+            'fillColor': p_color,
+            'color': p_color,
+            'weight': 0.5,
+            'fillOpacity': 0.35
+        })).addTo(layer_group)
+        circle.bindPopup(f"<b>Strike Probability Zone</b><br>Lat: {grid['lat']}°N, Lon: {grid['lon']}°E<br>Strike Risk: <b>{grid['prob']}%</b> (within 120km)")
+
+    # 2. Render Thin Ensemble Track Lines
+    for track in ensemble_tracks:
+        coords = [[pt["lat"], pt["lon"]] for pt in track]
+        L.polyline(to_js(coords), to_js({
+            'color': '#a855f7',
+            'weight': 1,
+            'opacity': 0.35,
+            'dashArray': '3, 3'
+        })).addTo(layer_group)
+
+    # 3. Render Ensemble Mean Track
+    mean_coords = [[pt["lat"], pt["lon"]] for pt in ensemble_mean]
+    L.polyline(to_js(mean_coords), to_js({
+        'color': '#ef4444',
+        'weight': 4,
+        'opacity': 0.95
+    })).addTo(layer_group)
+
+    # 4. Render Observed Track (Solid Green)
+    obs_coords = [[pt["lat"], pt["lon"]] for pt in observed_pts]
     L.polyline(to_js(obs_coords), to_js({'color': '#10b981', 'weight': 4, 'opacity': 0.9})).addTo(layer_group)
 
     for idx, pt in enumerate(observed_pts):
@@ -284,46 +371,13 @@ async def load_realtime_95w(event=None):
             'weight': 1,
             'fillOpacity': 0.95
         })).addTo(layer_group)
-        marker.bindPopup(f"<b>Invest 95W</b><br>Fix Time: {pt['time']}<br>Lat: {pt['lat']}°N, Lon: {pt['lon']}°E<br>Wind: {pt['vmax']} kts")
+        marker.bindPopup(f"<b>Invest 94W</b><br>Fix Time: {pt['time']}<br>Lat: {pt['lat']}°N, Lon: {pt['lon']}°E<br>Wind: {pt['vmax']} kts")
 
-    # 2. Run plot_ensemble starting from latest observed position
-    members, mean_track = plot_ensemble(latest["lat"], latest["lon"], num_members=20)
-
-    # Plot Member Tracks (Dashed Purple Lines)
-    for m in members:
-        m_coords = [[p["lat"], p["lon"]] for p in m["track"]]
-        L.polyline(to_js(m_coords), to_js({
-            'color': '#a855f7',
-            'weight': 1.5,
-            'opacity': 0.45,
-            'dashArray': '4, 4'
-        })).addTo(layer_group)
-
-    # Plot Ensemble Mean Track (Solid Red Line)
-    mean_coords = [[p["lat"], p["lon"]] for p in mean_track]
-    L.polyline(to_js(mean_coords), to_js({
-        'color': '#ef4444',
-        'weight': 4,
-        'opacity': 0.95
-    })).addTo(layer_group)
-
-    for pt in mean_track[1:]:
-        marker = L.circleMarker(L.latLng(pt["lat"], pt["lon"]), to_js({
-            'radius': 5,
-            'fillColor': '#ef4444',
-            'color': '#ffffff',
-            'weight': 1,
-            'fillOpacity': 0.9
-        })).addTo(layer_group)
-        marker.bindPopup(f"<b>95W Ensemble Mean</b><br>Lead Time: +{pt['fhr']}h<br>Lat: {pt['lat']}°N, Lon: {pt['lon']}°E")
-
-# Bind Refresh Button Event
-refresh_proxy = create_proxy(load_realtime_95w)
+refresh_proxy = create_proxy(load_realtime_94w)
 document.getElementById('refresh-btn').addEventListener('click', refresh_proxy)
 
-# Initial Load
 import asyncio
-asyncio.ensure_future(load_realtime_95w())
+asyncio.ensure_future(load_realtime_94w())
 </script>
 
 </body>
