@@ -143,9 +143,9 @@
     </select>
 
     <div class="info-row"><span>Latest Position:</span><b id="latest-pos" style="color:#38bdf8;">-</b></div>
+    <div class="info-row"><span>Fix Timestamp:</span><b id="latest-time" style="color:#f59e0b;">-</b></div>
     <div class="info-row"><span>Observed Fixes:</span><b id="obs-count" style="color:#10b981;">-</b></div>
     <div class="info-row"><span>Ensemble Size:</span><b id="ens-count" style="color:#a855f7;">30 Members</b></div>
-    <div class="info-row"><span>Strike Radius:</span><b style="color:#f59e0b;">120 km (~1.1°)</b></div>
 
     <button class="btn-refresh" id="refresh-btn">🔄 Refresh Active System</button>
 
@@ -177,7 +177,7 @@ import math
 import random
 import pyodide_http
 import pandas as pd
-from js import document, L, fetch
+from js import document, L, fetch, Object
 from pyodide.ffi import to_js, create_proxy
 
 pyodide_http.patch_all()
@@ -185,7 +185,6 @@ pyodide_http.patch_all()
 map_instance = None
 layer_group = None
 
-# Default synthetic datasets in case ATCF feed is unreachable
 FALLBACK_DATA = {
     "94W": [
         {"lat": 11.5, "lon": 136.2, "time": "2026081700", "vmax": 20},
@@ -201,38 +200,51 @@ FALLBACK_DATA = {
     ]
 }
 
-def parse_atcf_bdeck(text_data, system_id):
-    """ Parse NOAA / JTWC ATCF B-Deck format specifically for designated system ID """
-    observed_pts = []
+def js_obj(py_dict):
+    """ Converts Python dictionary to plain JS Object so Leaflet reads styling attributes """
+    return Object.fromEntries(to_js(py_dict))
+
+def parse_atcf_bdeck_robust(text_data):
     lines = text_data.strip().split('\n')
-    
+    fix_dict = {}
+
     for line in lines:
         parts = [p.strip() for p in line.split(',')]
         if len(parts) >= 8:
+            time_str = parts[2] if len(parts) > 2 else ""
+            tech = parts[4] if len(parts) > 4 else ""
             raw_lat = parts[6]
             raw_lon = parts[7]
+
             if raw_lat and raw_lon and len(raw_lat) >= 3 and len(raw_lon) >= 3:
-                lat_val = float(raw_lat[:-1]) / 10.0
-                if raw_lat[-1] == 'S':
-                    lat_val = -lat_val
-                
-                lon_val = float(raw_lon[:-1]) / 10.0
-                if raw_lon[-1] == 'W':
-                    lon_val = 360.0 - lon_val
-                
-                time_str = parts[2] if len(parts) > 2 else "Fix"
-                vmax = int(parts[8]) if len(parts) > 8 and parts[8].isdigit() else 0
-                
-                observed_pts.append({
-                    "lat": round(lat_val, 2),
-                    "lon": round(lon_val, 2),
-                    "vmax": vmax,
-                    "time": time_str
-                })
-    return observed_pts
+                try:
+                    lat_val = float(raw_lat[:-1]) / 10.0
+                    if raw_lat[-1] == 'S':
+                        lat_val = -lat_val
+
+                    lon_val = float(raw_lon[:-1]) / 10.0
+                    if raw_lon[-1] == 'W':
+                        lon_val = -lon_val
+
+                    vmax = int(parts[8]) if len(parts) > 8 and parts[8].isdigit() else 0
+
+                    entry = {
+                        "lat": round(lat_val, 2),
+                        "lon": round(lon_val, 2),
+                        "vmax": vmax,
+                        "time": time_str,
+                        "tech": tech
+                    }
+
+                    if time_str not in fix_dict or tech == 'BEST' or (tech == 'CARQ' and fix_dict[time_str]['tech'] != 'BEST'):
+                        fix_dict[time_str] = entry
+
+                except ValueError:
+                    continue
+
+    return sorted(fix_dict.values(), key=lambda x: x['time'])
 
 def compute_ensemble_probabilities(start_lat, start_lon, system_seed=94, num_members=30, radius_deg=1.1):
-    """ Generates 30 ensemble perturbed tracks and computes spatial strike probability grid """
     forecast_hours = [0, 12, 24, 36, 48, 72, 96, 120]
     base_lat_deltas = [0.0, 0.8, 1.7, 2.7, 3.6, 5.2, 6.8, 8.2]
     base_lon_deltas = [0.0, -1.1, -2.4, -3.8, -5.2, -7.5, -9.8, -11.8]
@@ -253,14 +265,12 @@ def compute_ensemble_probabilities(start_lat, start_lon, system_seed=94, num_mem
 
         ensemble_members.append(track)
 
-    # Calculate Ensemble Mean Track
     ensemble_mean = []
     for idx, fhr in enumerate(forecast_hours):
         m_lat = sum(m[idx]["lat"] for m in ensemble_members) / num_members
         m_lon = sum(m[idx]["lon"] for m in ensemble_members) / num_members
         ensemble_mean.append({"fhr": fhr, "lat": round(m_lat, 3), "lon": round(m_lon, 3)})
 
-    # Calculate Grid Strike Probabilities
     all_lats = [pt["lat"] for m in ensemble_members for pt in m]
     all_lons = [pt["lon"] for m in ensemble_members for pt in m]
 
@@ -294,7 +304,6 @@ def compute_ensemble_probabilities(start_lat, start_lon, system_seed=94, num_mem
     return ensemble_members, ensemble_mean, grid_probs
 
 def get_prob_color(prob):
-    """ Map strike probability percentage to risk color gradient """
     if prob >= 80.0:
         return "#ef4444"
     elif prob >= 50.0:
@@ -305,26 +314,27 @@ def get_prob_color(prob):
         return "#3b82f6"
 
 async def fetch_atcf_data(system_id):
-    """ Fetch bdeck file for given system ID (e.g. 94W -> bwp942026.dat) """
     num = system_id[:-1]
-    target_url = f"https://ftp.nhc.noaa.gov/atcf/btk/bwp{num}2026.dat"
-    proxies = [
-        f"https://corsproxy.io/?{target_url}",
-        f"https://api.allorigins.win/raw?url={target_url}"
-    ]
+    years = ["2026", "2025", "2024"]
 
-    for p_url in proxies:
-        try:
-            res = await fetch(p_url)
-            if res.ok:
-                text = await res.text()
-                if "WP, " + num in text or system_id in text:
-                    parsed = parse_atcf_bdeck(text, system_id)
-                    if parsed:
-                        return parsed
-        except Exception as e:
-            print(f"Proxy attempt for {system_id} failed:", e)
-            continue
+    for yr in years:
+        target_url = f"https://ftp.nhc.noaa.gov/atcf/btk/bwp{num}{yr}.dat"
+        proxies = [
+            f"https://corsproxy.io/?{target_url}",
+            f"https://api.allorigins.win/raw?url={target_url}"
+        ]
+
+        for p_url in proxies:
+            try:
+                res = await fetch(p_url)
+                if res.ok:
+                    text = await res.text()
+                    if f"WP, {num}" in text or system_id in text:
+                        parsed = parse_atcf_bdeck_robust(text)
+                        if parsed:
+                            return parsed
+            except Exception as e:
+                continue
     return []
 
 async def load_invest_data(event=None):
@@ -336,18 +346,16 @@ async def load_invest_data(event=None):
     document.getElementById('data-source').innerText = "FETCHING..."
     document.getElementById('data-source').style.background = "#d97706"
 
-    # Fetch live data using multi-proxy
     observed_pts = await fetch_atcf_data(system_id)
     is_live = len(observed_pts) > 0
 
-    # Fallback if live feed is unavailable
     if not observed_pts:
         observed_pts = FALLBACK_DATA.get(system_id, FALLBACK_DATA["94W"])
 
-    # UI updates
     document.getElementById('obs-count').innerText = str(len(observed_pts))
     latest = observed_pts[-1]
     document.getElementById('latest-pos').innerText = f"{latest['lat']}°N, {latest['lon']}°E"
+    document.getElementById('latest-time').innerText = str(latest.get('time', 'N/A'))
 
     if is_live:
         document.getElementById('data-source').innerText = "LIVE ATCF"
@@ -356,68 +364,70 @@ async def load_invest_data(event=None):
         document.getElementById('data-source').innerText = f"SIMULATED {system_id}"
         document.getElementById('data-source').style.background = "#6b7280"
 
-    # Map initialization
     if map_instance is None:
-        map_instance = L.map('map', to_js({'zoomControl': False})).setView(L.latLng(latest["lat"], latest["lon"]), 6)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', to_js({
+        map_instance = L.map('map', js_obj({'zoomControl': False})).setView(L.latLng(latest["lat"], latest["lon"]), 6)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', js_obj({
             'maxZoom': 18,
-            'attribution': 'CartoDB | NOAA ATCF Invest Probabilities'
+            'attribution': 'CartoDB | NOAA ATCF Invest Tracker'
         })).addTo(map_instance)
-        L.control.zoom(to_js({'position': 'topright'})).addTo(map_instance)
+        L.control.zoom(js_obj({'position': 'topright'})).addTo(map_instance)
         layer_group = L.layerGroup().addTo(map_instance)
     else:
         layer_group.clearLayers()
         map_instance.setView(L.latLng(latest["lat"], latest["lon"]), 6)
 
-    # Calculate 30-member Ensemble & Probability Grid
     ensemble_tracks, ensemble_mean, grid_probs = compute_ensemble_probabilities(latest["lat"], latest["lon"], system_seed=seed, num_members=30)
 
-    # 1. Render Strike Probability Heat Circles
+    # 1. Render Strike Probability Heat Circles (with fixed JS Object option parsing)
     for grid in grid_probs:
         p_color = get_prob_color(grid["prob"])
-        circle = L.circle(L.latLng(grid["lat"], grid["lon"]), to_js({
+        circle = L.circle(L.latLng(grid["lat"], grid["lon"]), js_obj({
             'radius': 35000,
             'fillColor': p_color,
             'color': p_color,
-            'weight': 0.5,
-            'fillOpacity': 0.35
+            'weight': 1,
+            'fillOpacity': 0.45
         })).addTo(layer_group)
-        circle.bindPopup(f"<b>{system_id} Strike Probability Zone</b><br>Lat: {grid['lat']}°N, Lon: {grid['lon']}°E<br>Strike Risk: <b>{grid['prob']}%</b> (within 120km)")
+        circle.bindPopup(f"<b>{system_id} Strike Risk</b><br>Lat: {grid['lat']}°N, Lon: {grid['lon']}°E<br>Probability: <b>{grid['prob']}%</b>")
 
-    # 2. Render Thin Ensemble Track Lines
+    # 2. Render Thin Ensemble Tracks (Purple dashed lines)
     for track in ensemble_tracks:
-        coords = [[pt["lat"], pt["lon"]] for pt in track]
-        L.polyline(to_js(coords), to_js({
+        coords = to_js([[pt["lat"], pt["lon"]] for pt in track])
+        L.polyline(coords, js_obj({
             'color': '#a855f7',
             'weight': 1,
-            'opacity': 0.35,
+            'opacity': 0.4,
             'dashArray': '3, 3'
         })).addTo(layer_group)
 
-    # 3. Render Ensemble Mean Track
-    mean_coords = [[pt["lat"], pt["lon"]] for pt in ensemble_mean]
-    L.polyline(to_js(mean_coords), to_js({
+    # 3. Render Ensemble Mean Track (Red line)
+    mean_coords = to_js([[pt["lat"], pt["lon"]] for pt in ensemble_mean])
+    L.polyline(mean_coords, js_obj({
         'color': '#ef4444',
         'weight': 4,
         'opacity': 0.95
     })).addTo(layer_group)
 
-    # 4. Render Observed Track (Solid Green)
-    obs_coords = [[pt["lat"], pt["lon"]] for pt in observed_pts]
-    L.polyline(to_js(obs_coords), to_js({'color': '#10b981', 'weight': 4, 'opacity': 0.9})).addTo(layer_group)
+    # 4. Render Observed Track (Green solid line)
+    obs_coords = to_js([[pt["lat"], pt["lon"]] for pt in observed_pts])
+    L.polyline(obs_coords, js_obj({
+        'color': '#10b981',
+        'weight': 4,
+        'opacity': 0.95
+    })).addTo(layer_group)
 
+    # 5. Render Fix Markers
     for idx, pt in enumerate(observed_pts):
         is_last = (idx == len(observed_pts) - 1)
-        marker = L.circleMarker(L.latLng(pt["lat"], pt["lon"]), to_js({
+        marker = L.circleMarker(L.latLng(pt["lat"], pt["lon"]), js_obj({
             'radius': 7 if is_last else 4,
             'fillColor': '#ef4444' if is_last else '#10b981',
             'color': '#ffffff',
             'weight': 1,
-            'fillOpacity': 0.95
+            'fillOpacity': 1.0
         })).addTo(layer_group)
-        marker.bindPopup(f"<b>Invest {system_id}</b><br>Fix Time: {pt['time']}<br>Lat: {pt['lat']}°N, Lon: {pt['lon']}°E<br>Wind: {pt['vmax']} kts")
+        marker.bindPopup(f"<b>Invest {system_id}</b><br>Time: {pt['time']}<br>Position: {pt['lat']}°N, {pt['lon']}°E<br>Wind: {pt['vmax']} kts")
 
-# Bind Event Listeners
 refresh_proxy = create_proxy(load_invest_data)
 document.getElementById('refresh-btn').addEventListener('click', refresh_proxy)
 document.getElementById('invest-selector').addEventListener('change', refresh_proxy)
