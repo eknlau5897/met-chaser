@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAMMB RIPA Auto-Fetch Diagnostic Summary</title>
+    
+    <!-- PyScript CSS & JavaScript CDN -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #1a252f;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        #status-box {
+            font-size: 13px;
+            color: #2c3e50;
+            background: #eef2f5;
+            padding: 8px 16px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        #plot-container {
+            width: 100%;
+            max-width: 1400px;
+            background: #ffffff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            display: flex;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>RAMMB RIPA Diagnostic Summary</h1>
+    <p class="subtitle">Automated Real-Time RAMMB/CIRA Product Retrieval & Visualization</p>
+
+    <div id="status-box">Status: Initializing Python environment...</div>
+
+    <!-- Plot Container -->
+    <div id="plot-container"></div>
+
+    <!-- PyScript Dependencies -->
+    <script type="py" config>
+        packages = ["pandas", "matplotlib", "requests", "pyodide-http"]
+    </script>
+
+    <!-- PyScript Logic -->
+    <script type="py">
+        import re
+        import requests
+        import pandas as pd
+        import matplotlib.pyplot as plt
+        from matplotlib.lines import Line2D
+        import pyodide_http
+        from pyscript import display
+
+        # Enable HTTP requests in PyScript WebAssembly
+        pyodide_http.patch_all()
+
+        def set_status(msg):
+            document.getElementById("status-box").innerText = f"Status: {msg}"
+
+        def fetch_latest_ripa_text(storm_id="2026wp95"):
+            """
+            Scrapes the RAMMB CIRA directory for the storm and automatically picks
+            the latest timestamped ripastbl .txt file.
+            """
+            dir_url = f"https://rammb-data.cira.colostate.edu/tc_realtime/products/storms/{storm_id}/ripastbl/"
+            set_status(f"Scanning directory {dir_url} for latest file...")
+            
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(dir_url, headers=headers)
+            
+            if response.status_code != 200:
+                raise Exception(f"Failed to access directory listing (HTTP {response.status_code})")
+            
+            # Find all text file links in the directory
+            file_matches = re.findall(rf'href=["\']({storm_id}_ripastbl_\d+\.txt)["\']', response.text, re.IGNORECASE)
+            
+            if not file_matches:
+                # Fallback pattern search
+                file_matches = re.findall(r'href=["\']([\w_]+\.txt)["\']', response.text, re.IGNORECASE)
+
+            if not file_matches:
+                raise Exception("No RIPA text files found in the directory.")
+
+            # Sort alphabetically/chronologically to extract the latest timestamp
+            latest_file = sorted(file_matches)[-1]
+            file_url = dir_url + latest_file
+            
+            set_status(f"Fetching latest product: {latest_file}")
+            file_response = requests.get(file_url, headers=headers)
+            
+            if file_response.status_code == 200:
+                return file_response.text, latest_file
+            else:
+                raise Exception(f"HTTP Error {file_response.status_code} fetching {file_url}")
+
+        def parse_ripa_file_robust(raw_text):
+            lines = raw_text.splitlines()
+            
+            # 1. PARSE RI PROBABILITIES
+            ri_probs = []
+            for line in lines:
+                line_str = line.strip()
+                if not line_str:
+                    continue
+                    
+                thresh_match = re.search(r'\b(RI\s*\d+|\d+\s*kt(?:\s*/\s*\d+\s*hr)?|RI\s*Prob\w*)\b', line_str, re.IGNORECASE)
+                if thresh_match:
+                    rest_of_line = line_str[thresh_match.end():]
+                    numbers = re.findall(r'(\d+(?:\.\d+)?)\s*%?', rest_of_line)
+                    
+                    if numbers:
+                        val = float(numbers[-1])
+                        if 0.0 < val <= 1.0:
+                            val *= 100.0
+                            
+                        thresh_name = re.sub(r'\s+', ' ', thresh_match.group(1).strip())
+                        ri_probs.append({'Threshold': thresh_name, 'Probability': val})
+
+            df_ri = pd.DataFrame(ri_probs).drop_duplicates(subset=['Threshold']) if ri_probs else pd.DataFrame()
+
+            # 2. PARSE FORECAST CONDITIONS PREDICTORS & RATINGS
+            hours = [6, 12, 18, 24, 36, 48, 60, 72]
+            cond_data = []
+            
+            for line in lines:
+                line_str = line.strip()
+                if not line_str:
+                    continue
+                    
+                ratings = re.findall(r'\b[FNU]\b', line_str)
+                if len(ratings) == 8:
+                    num_matches = list(re.finditer(r'[-+]?\d*\.\d+|\d+', line_str))
+                    if len(num_matches) >= 8:
+                        val_matches = num_matches[-8:]
+                        vals = [float(m.group()) for m in val_matches]
+                        
+                        first_val_idx = val_matches[0].start()
+                        predictor_name = re.sub(r'\s+', ' ', line_str[:first_val_idx].strip())
+                        
+                        for hr, val, rating in zip(hours, vals, ratings):
+                            cond_data.append({
+                                'ForecastHour': hr,
+                                'Predictor': predictor_name,
+                                'Value': val,
+                                'Rating': rating
+                            })
+
+            df_cond = pd.DataFrame(cond_data)
+            return df_ri, df_cond
+
+        def build_ripa_side_by_side_fig(df_ri, df_cond, title_filename):
+            color_map = {'F': '#2ca02c', 'N': '#7f7f7f', 'U': '#d62728'}
+            predictors = df_cond['Predictor'].unique() if not df_cond.empty else []
+            
+            fig = plt.figure(figsize=(16, 10))
+            gs = fig.add_gridspec(3, 4, hspace=0.38, wspace=0.35)
+            
+            # LEFT SIDE: RI Probabilities (Cols 0-1)
+            ax_prob = fig.add_subplot(gs[:, 0:2])
+            
+            if not df_ri.empty:
+                bars = ax_prob.bar(df_ri['Threshold'], df_ri['Probability'], color='#1f77b4', width=0.45, edgecolor='black', alpha=0.85)
+                ax_prob.set_ylabel("Probability (%)", fontweight='bold', fontsize=11)
+                ax_prob.set_title("Rapid Intensification (RI) Probabilities", fontsize=12, fontweight='bold', pad=12)
+                ax_prob.set_ylim(0, 110)
+                ax_prob.grid(True, axis='y', linestyle=':', alpha=0.6)
+                ax_prob.tick_params(axis='x', rotation=15)
+                
+                for bar in bars:
+                    yval = bar.get_height()
+                    ax_prob.text(bar.get_x() + bar.get_width()/2.0, yval + 2, f"{int(yval)}%", ha='center', va='bottom', fontweight='bold', fontsize=10)
+            else:
+                if any('Potential' in p for p in predictors):
+                    pot_pred = [p for p in predictors if 'Potential' in p][0]
+                    sub = df_cond[df_cond['Predictor'] == pot_pred].sort_values('ForecastHour')
+                    ax_prob.plot(sub['ForecastHour'], sub['Value'], marker='o', color='#2ca02c', linewidth=2, markersize=8)
+                    ax_prob.set_ylabel("Maximum Potential Intensity [kt]", fontweight='bold', fontsize=11)
+                    ax_prob.set_xlabel("Forecast Lead Hour", fontweight='bold', fontsize=11)
+                    ax_prob.set_title("Potential Intensity Trend", fontsize=12, fontweight='bold', pad=12)
+                    ax_prob.grid(True, linestyle=':', alpha=0.6)
+                    
+                    for _, r in sub.iterrows():
+                        ax_prob.annotate(f"{int(r['Value'])} kt", (r['ForecastHour'], r['Value']),
+                                         textcoords="offset points", xytext=(0, 8), ha='center', fontweight='bold', fontsize=9)
+                else:
+                    ax_prob.text(0.5, 0.5, "RI Probability Data Not Available", ha='center', va='center', fontsize=12, fontweight='bold')
+
+            # RIGHT SIDE: 6 Environmental Predictor Plots (Cols 2-3)
+            for i, pred in enumerate(predictors[:6]):
+                row = i // 2
+                col = 2 + (i % 2)
+                
+                ax = fig.add_subplot(gs[row, col])
+                sub = df_cond[df_cond['Predictor'] == pred].sort_values('ForecastHour')
+                
+                ax.plot(sub['ForecastHour'], sub['Value'], color='#555555', linestyle='--', alpha=0.7, zorder=1)
+                
+                y_min, y_max = sub['Value'].min(), sub['Value'].max()
+                y_padding = (y_max - y_min) * 0.22 if y_max != y_min else 2.0
+                ax.set_ylim(y_min - y_padding, y_max + y_padding)
+
+                for _, r in sub.iterrows():
+                    c = color_map.get(r['Rating'], 'blue')
+                    ax.scatter(r['ForecastHour'], r['Value'], color=c, s=55, zorder=2)
+                    ax.annotate(r['Rating'], (r['ForecastHour'], r['Value']), 
+                                textcoords="offset points", xytext=(0, 6), ha='center', va='bottom',
+                                fontsize=8, fontweight='bold', color=c)
+
+                ax.set_title(pred, fontsize=10, fontweight='bold')
+                ax.grid(True, linestyle=':', alpha=0.6)
+                if row == 2:
+                    ax.set_xlabel("Forecast Lead Hour", fontweight='bold', fontsize=9)
+
+            fig.suptitle(f"RAMMB RIPA Summary — {title_filename}", fontsize=14, fontweight='bold', y=0.98)
+
+            legend_elements = [
+                Line2D([0], [0], marker='o', color='w', label='Favorable (F)', markerfacecolor='#2ca02c', markersize=9),
+                Line2D([0], [0], marker='o', color='w', label='Neutral (N)', markerfacecolor='#7f7f7f', markersize=9),
+                Line2D([0], [0], marker='o', color='w', label='Unfavorable (U)', markerfacecolor='#d62728', markersize=9)
+            ]
+            fig.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(0.98, 0.97))
+            
+            return fig
+
+        # Automated Execution
+        try:
+            raw_text, filename = fetch_latest_ripa_text(storm_id="2026wp95")
+            df_ri, df_cond = parse_ripa_file_robust(raw_text)
+
+            fig = build_ripa_side_by_side_fig(df_ri, df_cond, title_filename=filename)
+
+            set_status(f"Successfully loaded and plotted latest file: {filename}")
+            display(fig, target="plot-container")
+            
+        except Exception as e:
+            set_status(f"Error loading data: {str(e)}")
+    </script>
+
+</body>
+</html>
