@@ -59,11 +59,43 @@
             margin-bottom: 4px;
         }
 
+        .legend-color-box {
+            width: 12px;
+            height: 12px;
+            margin-right: 8px;
+            border-radius: 2px;
+            display: inline-block;
+        }
+
         .legend-line {
             width: 24px;
             height: 3px;
             margin-right: 8px;
             border-radius: 2px;
+        }
+
+        /* Diagnostic Page Link Button */
+        .diag-link-btn {
+            display: block;
+            width: 100%;
+            margin-top: 12px;
+            box-sizing: border-box;
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: #ffffff;
+            text-align: center;
+            text-decoration: none;
+            padding: 9px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
+        }
+
+        .diag-link-btn:hover {
+            background: linear-gradient(135deg, #0369a1, #075985);
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.5);
+            color: #ffffff;
         }
     </style>
 </head>
@@ -79,13 +111,24 @@
     <div class="legend">
         <div class="legend-item">
             <div class="legend-line" style="background: #10b981;"></div>
-            <span>Observed / Past Track (Solid Line)</span>
+            <span>Observed Track (Solid)</span>
         </div>
         <div class="legend-item">
             <div class="legend-line" style="border-top: 3px dashed #38bdf8;"></div>
-            <span>Forecast Track (Dashed Line)</span>
+            <span>Forecast Track (Dashed)</span>
         </div>
+        <div style="margin-top: 8px; font-weight: 600; color: #cbd5e1; font-size: 11px;">SSHWS Intensity Colors:</div>
+        <div class="legend-item"><span class="legend-color-box" style="background: #5ebaff;"></span>TD / MD (< 34 kt)</div>
+        <div class="legend-item"><span class="legend-color-box" style="background: #00fafc;"></span>Tropical Storm (34–63 kt)</div>
+        <div class="legend-item"><span class="legend-color-box" style="background: #ffffcc;"></span>Category 1 (64–82 kt)</div>
+        <div class="legend-item"><span class="legend-color-box" style="background: #ffe775;"></span>Category 2 (83–95 kt)</div>
+        <div class="legend-item"><span class="legend-color-box" style="background: #ffc140;"></span>Category 3 (96–112 kt)</div>
+        <div class="legend-item"><span class="legend-color-box" style="background: #ff8f20;"></span>Category 4 (113–136 kt)</div>
+        <div class="legend-item"><span class="legend-color-box" style="background: #ff6060;"></span>Category 5 (≥ 137 kt)</div>
     </div>
+
+    <!-- Diagnostic Page Link Button -->
+    <a href="#" target="_blank" class="diag-link-btn">📊 Open Diagnostics Page ↗</a>
 </div>
 
 <div id="map"></div>
@@ -94,27 +137,31 @@
     // =========================================================================
     // EDIT YOUR FIXED OBSERVED & FORECAST DATA HERE IN THE CODE
     // =========================================================================
-    const stormName = "TYPHOON 70W";
+    const stormName = "Monsoon Depression 95W";
 
-    // Past / Observed Data (Historical track up to current time)
     const observedData = [
-        { time: "2026-08-15 00Z", lat: 14.2, lon: 125.0, mslp: 1008.0 },
-        { time: "2026-08-15 12Z", lat: 15.0, lon: 123.8, mslp: 1004.0 },
-        { time: "2026-08-16 00Z", lat: 16.1, lon: 122.5, mslp: 1000.0 },
-        { time: "2026-08-16 12Z", lat: 17.0, lon: 121.2, mslp: 996.0  },
-        { time: "2026-08-17 00Z", lat: 18.0, lon: 120.0, mslp: 990.0  }  // Current position
+        { time: "2026-08-18 18Z", lat: 19.2, lon: 115.0, wind: 25, mslp: 1000, type: "MD" }
     ];
 
-    // Forecast Data (Projections moving forward)
     const forecastData = [
-        { hour: 0,  lat: 18.0, lon: 120.0, mslp: 990.0 }, // Starts at current position
-        { hour: 12, lat: 18.8, lon: 118.5, mslp: 985.0 },
-        { hour: 24, lat: 19.6, lon: 117.1, mslp: 978.0 },
-        { hour: 36, lat: 20.5, lon: 115.8, mslp: 970.0 },
-        { hour: 48, lat: 21.3, lon: 114.5, mslp: 965.0 },
-        { hour: 72, lat: 22.2, lon: 113.2, mslp: 960.0 }
+        { hour: 0,  lat: 19.2, lon: 115.0, wind: 20, mslp: 1000, type: "MD" },
+        { hour: 12, lat: 19.7, lon: 111.9, wind: 20, mslp: 998,  type: "MD" },
+        { hour: 24, lat: 19.6, lon: 110.2, wind: 25, mslp: 998,  type: "MD" },
+        { hour: 36, lat: 20.5, lon: 109.9, wind: 25, mslp: 998,  type: "TD" },
+        { hour: 48, lat: 20.7, lon: 109.6, wind: 30, mslp: 996,  type: "TD" },
+        { hour: 60, lat: 21.2, lon: 110.4, wind: 35, mslp: 995,  type: "TS" },
+        { hour: 72, lat: 22.1, lon: 111.3, wind: 25, mslp: 1000, type: "TD" }
     ];
-    // =========================================================================
+
+    function getSshwsDetails(wind) {
+        if (wind >= 137) return { color: "#ff6060", cat: "Category 5 Major Hurricane" };
+        if (wind >= 113) return { color: "#ff8f20", cat: "Category 4 Major Hurricane" };
+        if (wind >= 96)  return { color: "#ffc140", cat: "Category 3 Major Hurricane" };
+        if (wind >= 83)  return { color: "#ffe775", cat: "Category 2 Hurricane" };
+        if (wind >= 64)  return { color: "#ffffcc", cat: "Category 1 Hurricane" };
+        if (wind >= 34)  return { color: "#00fafc", cat: "Tropical Storm" };
+        return { color: "#5ebaff", cat: "Tropical Depression / Depression" };
+    }
 
     // Update panel details
     document.getElementById('storm-title').innerText = "🌀 " + stormName;
@@ -125,11 +172,10 @@
     const minMslp = Math.min(...allMslp);
     document.getElementById('min-mslp').innerText = minMslp.toFixed(1) + " hPa";
 
-    // Center map on the current position (last point of observed track)
+    // Center map on current position
     const currentPos = observedData[observedData.length - 1];
     const map = L.map('map', { zoomControl: false }).setView([currentPos.lat, currentPos.lon], 6);
 
-    // Dark Map Base Tiles
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 18,
         attribution: 'CartoDB'
@@ -137,22 +183,18 @@
 
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // 1. PLOT OBSERVED TRACK (Solid Green Vector)
+    // 1. PLOT OBSERVED TRACK
     const obsCoords = observedData.map(p => [p.lat, p.lon]);
-    L.polyline(obsCoords, {
-        color: '#10b981',
-        weight: 4,
-        opacity: 0.9
-    }).addTo(map);
+    L.polyline(obsCoords, { color: '#10b981', weight: 4, opacity: 0.9 }).addTo(map);
 
-    // Plot Observed Markers
     observedData.forEach((point, index) => {
         const isCurrent = index === observedData.length - 1;
+        const sshws = getSshwsDetails(point.wind);
 
         const marker = L.circleMarker([point.lat, point.lon], {
             radius: isCurrent ? 8 : 5,
-            fillColor: isCurrent ? '#ef4444' : '#10b981',
-            color: '#ffffff',
+            fillColor: sshws.color,
+            color: isCurrent ? '#ffffff' : '#000000',
             weight: isCurrent ? 2 : 1,
             fillOpacity: 1
         }).addTo(map);
@@ -162,30 +204,26 @@
                 <b style="color:#10b981;">OBSERVED DATA</b><br>
                 <b>${stormName}</b><br>
                 Time: <b>${point.time}</b><br>
+                Category: <b style="color:${sshws.color};">${sshws.cat}</b><br>
+                Wind Speed: <b>${point.wind} kt</b><br>
                 Position: <b>${point.lat.toFixed(1)}°N, ${point.lon.toFixed(1)}°E</b><br>
                 MSLP: <b>${point.mslp.toFixed(1)} hPa</b>
             </div>
         `);
     });
 
-    // 2. PLOT FORECAST TRACK (Dashed Cyan Vector)
+    // 2. PLOT FORECAST TRACK
     const fcstCoords = forecastData.map(p => [p.lat, p.lon]);
-    L.polyline(fcstCoords, {
-        color: '#38bdf8',
-        weight: 3,
-        dashArray: '6, 6',
-        opacity: 0.85
-    }).addTo(map);
+    L.polyline(fcstCoords, { color: '#38bdf8', weight: 3, dashArray: '6, 6', opacity: 0.85 }).addTo(map);
 
-    // Plot Forecast Markers (skip index 0 since it overlaps with current position)
     forecastData.slice(1).forEach((point) => {
-        const markerColor = point.mslp < 970 ? '#ef4444' : (point.mslp < 990 ? '#f59e0b' : '#38bdf8');
+        const sshws = getSshwsDetails(point.wind);
 
         const marker = L.circleMarker([point.lat, point.lon], {
             radius: 5,
-            fillColor: markerColor,
-            color: '#ffffff',
-            weight: 1.5,
+            fillColor: sshws.color,
+            color: '#000000',
+            weight: 1,
             fillOpacity: 0.9
         }).addTo(map);
 
@@ -194,6 +232,8 @@
                 <b style="color:#38bdf8;">FORECAST DATA</b><br>
                 <b>${stormName}</b><br>
                 Lead Time: <b>+${point.hour}h</b><br>
+                Category: <b style="color:${sshws.color};">${sshws.cat}</b><br>
+                Wind Speed: <b>${point.wind} kt</b><br>
                 Position: <b>${point.lat.toFixed(1)}°N, ${point.lon.toFixed(1)}°E</b><br>
                 MSLP: <b>${point.mslp.toFixed(1)} hPa</b>
             </div>
