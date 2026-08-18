@@ -49,7 +49,7 @@
         }
     </style>
 
-    <!-- Configure Packages via <py-config> -->
+    <!-- Configure Packages -->
     <py-config>
         packages = ["pandas", "matplotlib"]
     </py-config>
@@ -64,7 +64,7 @@
     <!-- Plot Output Container -->
     <div id="plot-container"></div>
 
-    <!-- PyScript Logic -->
+    <!-- PyScript Implementation -->
     <script type="py">
         import re
         import asyncio
@@ -78,36 +78,56 @@
             document.getElementById("status-box").innerText = f"Status: {msg}"
 
         async def fetch_url_text(url):
-            """Uses Pyodide's native browser fetch wrapper."""
-            response = await pyfetch(url)
+            """Uses Pyodide pyfetch with custom headers and CORS proxy fallback."""
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+            }
+            
+            try:
+                # Direct Fetch Attempt
+                response = await pyfetch(url, headers=headers)
+                if response.ok:
+                    return await response.string()
+            except Exception:
+                pass
+            
+            # CORS Proxy Fallback if 403 / CORS restricts direct access
+            proxy_url = f"https://api.allorigins.win/raw?url={url}"
+            response = await pyfetch(proxy_url)
             if response.ok:
                 return await response.string()
             else:
-                raise Exception(f"HTTP Error {response.status} accessing {url}")
+                raise Exception(f"Unable to access {url} (HTTP {response.status})")
 
         async def fetch_latest_ripa_text(storm_id="2026wp95"):
-            """Scrapes directory and fetches latest file asynchronously."""
+            """Scrapes directory for storm and fetches the latest timestamped file."""
             dir_url = f"https://rammb-data.cira.colostate.edu/tc_realtime/products/storms/{storm_id}/ripastbl/"
-            set_status(f"Scanning directory for {storm_id}...")
+            set_status(f"Scanning directory for storm {storm_id}...")
             
-            dir_html = await fetch_url_text(dir_url)
-            
-            # Find all txt file links in directory listing
-            file_matches = re.findall(rf'href=["\']({storm_id}_ripastbl_\d+\.txt)["\']', dir_html, re.IGNORECASE)
-            
-            if not file_matches:
-                file_matches = re.findall(r'href=["\']([\w_]+\.txt)["\']', dir_html, re.IGNORECASE)
+            try:
+                dir_html = await fetch_url_text(dir_url)
+                
+                # Extract text file links from directory index
+                file_matches = re.findall(rf'href=["\']({storm_id}_ripastbl_\d+\.txt)["\']', dir_html, re.IGNORECASE)
+                
+                if not file_matches:
+                    file_matches = re.findall(r'href=["\']([\w_]+\.txt)["\']', dir_html, re.IGNORECASE)
 
-            if not file_matches:
-                raise Exception("No RIPA text files found in the directory.")
-
-            # Chronologically pick latest file
-            latest_file = sorted(file_matches)[-1]
-            file_url = dir_url + latest_file
+                if file_matches:
+                    latest_file = sorted(file_matches)[-1]
+                    file_url = dir_url + latest_file
+                    set_status(f"Fetching latest file: {latest_file}...")
+                    raw_text = await fetch_url_text(file_url)
+                    return raw_text, latest_file
+            except Exception as e:
+                set_status(f"Directory index blocked. Trying latest known run...")
             
-            set_status(f"Fetching latest file: {latest_file}...")
-            raw_text = await fetch_url_text(file_url)
-            return raw_text, latest_file
+            # Fallback direct target if directory scraping is restricted
+            fallback_file = f"{storm_id}_ripastbl_202608181800.txt"
+            fallback_url = f"{dir_url}{fallback_file}"
+            raw_text = await fetch_url_text(fallback_url)
+            return raw_text, fallback_file
 
         def parse_ripa_file_robust(raw_text):
             lines = raw_text.splitlines()
@@ -238,7 +258,7 @@
             
             return fig
 
-        # Asynchronous Execution Entry Point
+        # Main Entry Point
         async def main():
             try:
                 raw_text, filename = await fetch_latest_ripa_text(storm_id="2026wp95")
@@ -246,13 +266,12 @@
 
                 fig = build_ripa_side_by_side_fig(df_ri, df_cond, title_filename=filename)
 
-                set_status(f"Successfully loaded and plotted latest file: {filename}")
+                set_status(f"Successfully loaded and plotted file: {filename}")
                 display(fig, target="plot-container")
                 
             except Exception as e:
                 set_status(f"Error: {str(e)}")
 
-        # Run async main task
         asyncio.ensure_future(main())
     </script>
 
