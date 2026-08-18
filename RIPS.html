@@ -39,7 +39,7 @@
             try:
                 # 1. Fetch live updated data from relative path (No CORS issue!)
                 set_status("Fetching latest product data from repository...")
-                resp_txt = await pyfetch("./data/latest_ripa.txt")
+                resp_txt = await pyfetch("./RIPS.txt")
                 if not resp_txt.ok:
                     raise Exception("File not found yet.")
                 raw_text = await resp_txt.string()
