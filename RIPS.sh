@@ -43,7 +43,7 @@ while true; do
         echo "$LATEST_FILE" > "$TARGET_NAME_FILE"
 
         # 5. Git commit & push if updated
-        git add data/
+        git add RIPS.txt
         if ! git diff --staged --quiet; then
             echo "[$(date -u)] New product synced (${LATEST_FILE}). Pushing to GitHub..."
             git commit -m "Update live RIPA product: ${LATEST_FILE}"
