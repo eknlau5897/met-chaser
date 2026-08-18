@@ -59,58 +59,51 @@
     <h1>RAMMB RIPA Diagnostic Summary</h1>
     <p class="subtitle">Automated Real-Time RAMMB/CIRA Product Retrieval & Visualization</p>
 
-    <div id="status-box">Status: Initializing Python environment...</div>
+    <div id="status-box">Status: Initializing environment...</div>
 
-    <!-- Plot Output Container -->
+    <!-- Plot Container -->
     <div id="plot-container"></div>
 
-    <!-- PyScript Implementation -->
+    <!-- JS Helper Function to bypass CORS/Preflight 405 issues -->
+    <script>
+        async function fetchTextJS(targetUrl) {
+            // Route through CORS proxy to prevent browser preflight 405 blocks
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+            const response = await fetch(proxyUrl);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status} loading target`);
+            }
+            const data = await response.json();
+            if (!data.contents) {
+                throw new Error("No data retrieved from proxy");
+            }
+            return data.contents;
+        }
+    </script>
+
+    <!-- PyScript Processing & Plotting -->
     <script type="py">
         import re
         import asyncio
         import pandas as pd
         import matplotlib.pyplot as plt
         from matplotlib.lines import Line2D
-        from pyodide.http import pyfetch
+        from js import fetchTextJS, window
         from pyscript import display, document
 
         def set_status(msg):
             document.getElementById("status-box").innerText = f"Status: {msg}"
 
-        async def fetch_url_text(url):
-            """Uses Pyodide pyfetch with custom headers and CORS proxy fallback."""
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-            }
-            
-            try:
-                # Direct Fetch Attempt
-                response = await pyfetch(url, headers=headers)
-                if response.ok:
-                    return await response.string()
-            except Exception:
-                pass
-            
-            # CORS Proxy Fallback if 403 / CORS restricts direct access
-            proxy_url = f"https://api.allorigins.win/raw?url={url}"
-            response = await pyfetch(proxy_url)
-            if response.ok:
-                return await response.string()
-            else:
-                raise Exception(f"Unable to access {url} (HTTP {response.status})")
-
         async def fetch_latest_ripa_text(storm_id="2026wp95"):
-            """Scrapes directory for storm and fetches the latest timestamped file."""
             dir_url = f"https://rammb-data.cira.colostate.edu/tc_realtime/products/storms/{storm_id}/ripastbl/"
             set_status(f"Scanning directory for storm {storm_id}...")
             
             try:
-                dir_html = await fetch_url_text(dir_url)
+                # Use JS proxy wrapper (avoids browser preflight 405)
+                dir_html = await fetchTextJS(dir_url)
                 
-                # Extract text file links from directory index
+                # Match timestamped text files
                 file_matches = re.findall(rf'href=["\']({storm_id}_ripastbl_\d+\.txt)["\']', dir_html, re.IGNORECASE)
-                
                 if not file_matches:
                     file_matches = re.findall(r'href=["\']([\w_]+\.txt)["\']', dir_html, re.IGNORECASE)
 
@@ -118,15 +111,15 @@
                     latest_file = sorted(file_matches)[-1]
                     file_url = dir_url + latest_file
                     set_status(f"Fetching latest file: {latest_file}...")
-                    raw_text = await fetch_url_text(file_url)
+                    raw_text = await fetchTextJS(file_url)
                     return raw_text, latest_file
             except Exception as e:
-                set_status(f"Directory index blocked. Trying latest known run...")
-            
-            # Fallback direct target if directory scraping is restricted
+                set_status(f"Directory index blocked. Loading default target file...")
+
+            # Fallback to direct latest run file
             fallback_file = f"{storm_id}_ripastbl_202608181800.txt"
             fallback_url = f"{dir_url}{fallback_file}"
-            raw_text = await fetch_url_text(fallback_url)
+            raw_text = await fetchTextJS(fallback_url)
             return raw_text, fallback_file
 
         def parse_ripa_file_robust(raw_text):
@@ -258,7 +251,7 @@
             
             return fig
 
-        # Main Entry Point
+        # Async execution entry point
         async def main():
             try:
                 raw_text, filename = await fetch_latest_ripa_text(storm_id="2026wp95")
@@ -266,7 +259,7 @@
 
                 fig = build_ripa_side_by_side_fig(df_ri, df_cond, title_filename=filename)
 
-                set_status(f"Successfully loaded and plotted file: {filename}")
+                set_status(f"Successfully rendered plot for: {filename}")
                 display(fig, target="plot-container")
                 
             except Exception as e:
