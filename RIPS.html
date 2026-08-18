@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAMMB RIPA Auto-Fetch Diagnostic Summary</title>
+    <title>RAMMB RIPA Auto-Fetch Summary</title>
     
-    <!-- PyScript CSS & JavaScript CDN -->
+    <!-- PyScript CSS & JavaScript -->
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
     
@@ -56,65 +56,58 @@
 
     <div id="status-box">Status: Initializing Python environment...</div>
 
-    <!-- Plot Container -->
+    <!-- Plot Output Container -->
     <div id="plot-container"></div>
 
-    <!-- PyScript Dependencies -->
+    <!-- Package Configuration (Only Pure-Python / WebAssembly Compatible Packages) -->
     <script type="py" config>
-        packages = ["pandas", "matplotlib", "requests", "pyodide-http"]
+        packages = ["pandas", "matplotlib"]
     </script>
 
-    <!-- PyScript Logic -->
+    <!-- PyScript Async Implementation -->
     <script type="py">
         import re
-        import requests
+        import asyncio
         import pandas as pd
         import matplotlib.pyplot as plt
         from matplotlib.lines import Line2D
-        import pyodide_http
-        from pyscript import display
-
-        # Enable HTTP requests in PyScript WebAssembly
-        pyodide_http.patch_all()
+        from pyodide.http import pyfetch
+        from pyscript import display, document
 
         def set_status(msg):
             document.getElementById("status-box").innerText = f"Status: {msg}"
 
-        def fetch_latest_ripa_text(storm_id="2026wp95"):
-            """
-            Scrapes the RAMMB CIRA directory for the storm and automatically picks
-            the latest timestamped ripastbl .txt file.
-            """
+        async def fetch_url_text(url):
+            """Uses Pyodide's native browser fetch wrapper."""
+            response = await pyfetch(url)
+            if response.ok:
+                return await response.string()
+            else:
+                raise Exception(f"HTTP Error {response.status} accessing {url}")
+
+        async def fetch_latest_ripa_text(storm_id="2026wp95"):
+            """Scrapes directory and fetches latest file asynchronously."""
             dir_url = f"https://rammb-data.cira.colostate.edu/tc_realtime/products/storms/{storm_id}/ripastbl/"
-            set_status(f"Scanning directory {dir_url} for latest file...")
+            set_status(f"Scanning directory for {storm_id}...")
             
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            response = requests.get(dir_url, headers=headers)
+            dir_html = await fetch_url_text(dir_url)
             
-            if response.status_code != 200:
-                raise Exception(f"Failed to access directory listing (HTTP {response.status_code})")
-            
-            # Find all text file links in the directory
-            file_matches = re.findall(rf'href=["\']({storm_id}_ripastbl_\d+\.txt)["\']', response.text, re.IGNORECASE)
+            # Find all txt file links in directory listing
+            file_matches = re.findall(rf'href=["\']({storm_id}_ripastbl_\d+\.txt)["\']', dir_html, re.IGNORECASE)
             
             if not file_matches:
-                # Fallback pattern search
-                file_matches = re.findall(r'href=["\']([\w_]+\.txt)["\']', response.text, re.IGNORECASE)
+                file_matches = re.findall(r'href=["\']([\w_]+\.txt)["\']', dir_html, re.IGNORECASE)
 
             if not file_matches:
                 raise Exception("No RIPA text files found in the directory.")
 
-            # Sort alphabetically/chronologically to extract the latest timestamp
+            # Chronologically pick latest file
             latest_file = sorted(file_matches)[-1]
             file_url = dir_url + latest_file
             
-            set_status(f"Fetching latest product: {latest_file}")
-            file_response = requests.get(file_url, headers=headers)
-            
-            if file_response.status_code == 200:
-                return file_response.text, latest_file
-            else:
-                raise Exception(f"HTTP Error {file_response.status_code} fetching {file_url}")
+            set_status(f"Fetching latest file: {latest_file}...")
+            raw_text = await fetch_url_text(file_url)
+            return raw_text, latest_file
 
         def parse_ripa_file_robust(raw_text):
             lines = raw_text.splitlines()
@@ -245,18 +238,22 @@
             
             return fig
 
-        # Automated Execution
-        try:
-            raw_text, filename = fetch_latest_ripa_text(storm_id="2026wp95")
-            df_ri, df_cond = parse_ripa_file_robust(raw_text)
+        # Asynchronous Execution Entry Point
+        async def main():
+            try:
+                raw_text, filename = await fetch_latest_ripa_text(storm_id="2026wp95")
+                df_ri, df_cond = parse_ripa_file_robust(raw_text)
 
-            fig = build_ripa_side_by_side_fig(df_ri, df_cond, title_filename=filename)
+                fig = build_ripa_side_by_side_fig(df_ri, df_cond, title_filename=filename)
 
-            set_status(f"Successfully loaded and plotted latest file: {filename}")
-            display(fig, target="plot-container")
-            
-        except Exception as e:
-            set_status(f"Error loading data: {str(e)}")
+                set_status(f"Successfully loaded and plotted latest file: {filename}")
+                display(fig, target="plot-container")
+                
+            except Exception as e:
+                set_status(f"Error: {str(e)}")
+
+        # Run async main task
+        asyncio.ensure_future(main())
     </script>
 
 </body>
