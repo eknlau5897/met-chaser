@@ -80,7 +80,6 @@
 
         def parse_rips_data(raw_text):
             lines = raw_text.splitlines()
-            ri_prob_data = []
             cond_data = []
             hours = [6, 12, 18, 24, 36, 48, 60, 72]
             
@@ -110,78 +109,80 @@
 
             df_cond = pd.DataFrame(cond_data)
 
-            # --- 2. EXPLICIT CONSENSUS ROW PARSER ---
-            threshold_labels = []
-            consensus_row_found = False
+            # --- 2. PARSE EXACT RIPS PROBABILITY TABLE (LDA, LRE, CONSENSUS) ---
+            threshold_headers = []
+            prob_table = {}
 
             for line in lines:
                 line_str = line.strip()
 
-                # A. Find Threshold Headers (e.g., "25 kt / 24 hr")
+                # A. Extract Threshold Headers (e.g., 25 kt / 24 hr, 30 kt / 24 hr, etc.)
                 if re.search(r'\d+\s*kt', line_str, re.IGNORECASE) and not re.search(r'\b[FNU]\b', line_str):
                     matches = re.findall(r'(\d+)\s*kt(?:\s*/\s*(\d+)\s*hr)?', line_str, re.IGNORECASE)
-                    if matches:
-                        threshold_labels = [f"{hrs if hrs else '24'}hrs/{kts} kts" for kts, hrs in matches]
+                    if matches and not threshold_headers:
+                        threshold_headers = [f"{kts} kt / {hrs if hrs else '24'} hr" for kts, hrs in matches]
 
-                # B. Match STRICTLY the line starting with "CONSENSUS"
-                if re.search(r'\b(CONSENSUS|RIPS CONSENSUS|CONS)\b', line_str, re.IGNORECASE) and not re.search(r'\b[FNU]\b', line_str):
-                    numbers = re.findall(r'(\d+(?:\.\d+)?)', line_str)
-                    clean_probs = [float(n) for n in numbers if float(n) <= 100.0]
-                    
-                    if clean_probs and threshold_labels:
-                        for lbl, p_val in zip(threshold_labels, clean_probs):
-                            if 0.0 < p_val <= 1.0:
-                                p_val *= 100.0
-                            ri_prob_data.append({'Threshold': lbl, 'Probability': p_val})
-                        consensus_row_found = True
-                        break
+                # B. Match LDA-Method, LRE-Method, and Consensus rows
+                if not re.search(r'\b[FNU]\b', line_str):
+                    if re.search(r'\b(LDA|LDA-METHOD)\b', line_str, re.IGNORECASE):
+                        nums = re.findall(r'(\d+(?:\.\d+)?)', line_str)
+                        prob_table['LDA-Method'] = [f"{float(n):.1f}%" if float(n) <= 100 else f"{float(n)*100:.1f}%" for n in nums[-len(threshold_headers):]]
+                    elif re.search(r'\b(LRE|LRE-METHOD)\b', line_str, re.IGNORECASE):
+                        nums = re.findall(r'(\d+(?:\.\d+)?)', line_str)
+                        prob_table['LRE-Method'] = [f"{float(n):.1f}%" if float(n) <= 100 else f"{float(n)*100:.1f}%" for n in nums[-len(threshold_headers):]]
+                    elif re.search(r'\b(CONSENSUS|RIPS CONSENSUS|CONS)\b', line_str, re.IGNORECASE):
+                        nums = re.findall(r'(\d+(?:\.\d+)?)', line_str)
+                        prob_table['CONSENSUS'] = [f"{float(n):.1f}%" if float(n) <= 100 else f"{float(n)*100:.1f}%" for n in nums[-len(threshold_headers):]]
 
-            # C. Fallback to Operational/Model line if no row named "CONSENSUS" exists
-            if not consensus_row_found:
-                for line in lines:
-                    line_str = line.strip()
-                    if re.search(r'\b(OPERATIONAL|TOTAL|RIPS)\b', line_str, re.IGNORECASE) and not re.search(r'\b[FNU]\b', line_str):
-                        numbers = re.findall(r'(\d+(?:\.\d+)?)', line_str)
-                        clean_probs = [float(n) for n in numbers if float(n) <= 100.0]
-                        if clean_probs and threshold_labels:
-                            for lbl, p_val in zip(threshold_labels, clean_probs):
-                                if 0.0 < p_val <= 1.0:
-                                    p_val *= 100.0
-                                ri_prob_data.append({'Threshold': lbl, 'Probability': p_val})
-                            break
+            return prob_table, threshold_headers, df_cond
 
-            df_ri = pd.DataFrame(ri_prob_data).drop_duplicates(subset=['Threshold']) if ri_prob_data else pd.DataFrame()
-            return df_ri, df_cond
-
-        def build_ripa_side_by_side_fig(df_ri, df_cond, title_filename):
+        def build_ripa_side_by_side_fig(prob_table, threshold_headers, df_cond, title_filename):
             color_map = {'F': '#2ca02c', 'N': '#7f7f7f', 'U': '#d62728'}
             predictors = df_cond['Predictor'].unique() if not df_cond.empty else []
             
             fig = plt.figure(figsize=(16, 10))
             gs = fig.add_gridspec(3, 4, hspace=0.38, wspace=0.35)
             
-            # LEFT SIDE: Consensus Rapid Intensification Probabilities
-            ax_prob = fig.add_subplot(gs[:, 0:2])
-            
-            if not df_ri.empty:
-                plot_ri = df_ri.head(6)
-                
-                bars = ax_prob.bar(plot_ri['Threshold'], plot_ri['Probability'], color='#2b5c8f', width=0.45, edgecolor='black', alpha=0.85)
-                
-                ax_prob.set_ylabel("Probability (%)", fontweight='bold', fontsize=11)
-                ax_prob.set_xlabel("Rapid Intensification (RI) Threshold", fontweight='bold', fontsize=11)
-                ax_prob.set_title("Consensus Probabilities [%] of Rapid Intensification", fontsize=12, fontweight='bold', pad=12)
-                
-                ax_prob.set_ylim(0, 110)
-                ax_prob.grid(True, axis='y', linestyle=':', alpha=0.6)
-                ax_prob.tick_params(axis='x', rotation=15, labelsize=10)
-                
-                for bar in bars:
-                    yval = bar.get_height()
-                    ax_prob.text(bar.get_x() + bar.get_width()/2.0, yval + 2.0, 
-                                 f"{int(round(yval))}%", ha='center', va='bottom', fontweight='bold', fontsize=10)
+            # LEFT SIDE: Table for LDA-Method, LRE-Method, and CONSENSUS
+            ax_table = fig.add_subplot(gs[:, 0:2])
+            ax_table.axis('off')
+            ax_table.set_title("Rapid Intensification Probabilities (%)", fontsize=13, fontweight='bold', pad=15)
+
+            if prob_table and threshold_headers:
+                col_labels = ["Method"] + threshold_headers
+                cell_text = []
+
+                # Ensure strict order of row generation
+                methods_order = ['LDA-Method', 'LRE-Method', 'CONSENSUS']
+                for m in methods_order:
+                    if m in prob_table:
+                        row = [m] + prob_table[m]
+                        cell_text.append(row)
+
+                table = ax_table.table(
+                    cellText=cell_text,
+                    colLabels=col_labels,
+                    cellLoc='center',
+                    loc='center'
+                )
+
+                table.auto_set_font_size(False)
+                table.set_fontsize(10)
+                table.scale(1.1, 2.2)
+
+                # Format Header & Consensus Highlight
+                for (r, c), cell in table.get_celld().items():
+                    if r == 0:
+                        cell.set_facecolor('#2b5c8f')
+                        cell.get_text().set_color('white')
+                        cell.get_text().set_weight('bold')
+                    elif r == len(cell_text):  # Highlight Consensus row
+                        cell.set_facecolor('#e8f4f8')
+                        cell.get_text().set_weight('bold')
+                    else:
+                        cell.set_facecolor('#fefefe')
             else:
-                ax_prob.text(0.5, 0.5, "Consensus Probability Data Not Found", ha='center', va='center', fontsize=12, fontweight='bold')
+                ax_table.text(0.5, 0.5, "RIPS Method Probabilities Not Found", ha='center', va='center', fontsize=12, fontweight='bold')
 
             # RIGHT SIDE: Environmental Predictors Grid
             for i, pred in enumerate(predictors[:6]):
@@ -229,7 +230,7 @@
                 filename = "RIPS.txt"
 
                 try:
-                    resp_txt = await pyfetch(f"RIPS.txt{cache_buster}")
+                    resp_txt = await pyfetch(f"data/latest_ripa.txt{cache_buster}")
                     if resp_txt.ok:
                         raw_text = await resp_txt.string()
                     
@@ -243,8 +244,8 @@
                     set_status("Error: 'data/latest_ripa.txt' not found or empty. Please run update_ripa.sh to sync.")
                     return
 
-                df_ri, df_cond = parse_rips_data(raw_text)
-                fig = build_ripa_side_by_side_fig(df_ri, df_cond, title_filename=filename)
+                prob_table, threshold_headers, df_cond = parse_rips_data(raw_text)
+                fig = build_ripa_side_by_side_fig(prob_table, threshold_headers, df_cond, title_filename=filename)
 
                 set_status(f"Successfully rendered latest product: {filename}")
                 display(fig, target="plot-container")
