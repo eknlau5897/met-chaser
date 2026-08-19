@@ -234,7 +234,7 @@
                     if resp_txt.ok:
                         raw_text = await resp_txt.string()
                     
-                    resp_name = await pyfetch(f"data/latest_filename.txt{cache_buster}")
+                    resp_name = await pyfetch(f"RIPS.txt{cache_buster}")
                     if resp_name.ok:
                         filename = (await resp_name.string()).strip()
                 except Exception:
