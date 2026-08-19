@@ -84,7 +84,7 @@
             cond_data = []
             hours = [6, 12, 18, 24, 36, 48, 60, 72]
             
-            # --- 1. PARSE ENVIRONMENTAL PREDICTORS (RIGHT SIDE) ---
+            # --- 1. PARSE ENVIRONMENTAL PREDICTORS ---
             for line in lines:
                 line_str = line.strip()
                 if not line_str:
@@ -110,53 +110,45 @@
 
             df_cond = pd.DataFrame(cond_data)
 
-            # --- 2. BLOCK-BASED RAPID INTENSIFICATION (RI) PARSER ---
-            # Locate threshold columns and extract percentage probability values
+            # --- 2. EXPLICIT CONSENSUS ROW PARSER ---
             threshold_labels = []
-            
-            for i, line in enumerate(lines):
+            consensus_row_found = False
+
+            for line in lines:
                 line_str = line.strip()
-                
-                # Search for headers defining knot thresholds (e.g., 25 kt/24hr, 30 kt, etc.)
-                if re.search(r'(\d+\s*kt)', line_str, re.IGNORECASE) and not re.search(r'\b[FNU]\b', line_str):
+
+                # A. Find Threshold Headers (e.g., "25 kt / 24 hr")
+                if re.search(r'\d+\s*kt', line_str, re.IGNORECASE) and not re.search(r'\b[FNU]\b', line_str):
                     matches = re.findall(r'(\d+)\s*kt(?:\s*/\s*(\d+)\s*hr)?', line_str, re.IGNORECASE)
                     if matches:
-                        threshold_labels = []
-                        for kts, hrs in matches:
-                            hr_str = hrs if hrs else "24"
-                            threshold_labels.append(f"{hr_str}hrs/{kts} kts")
+                        threshold_labels = [f"{hrs if hrs else '24'}hrs/{kts} kts" for kts, hrs in matches]
 
-                # Target probability lines under "Probabilities [%]" or consensus rows
-                if ("PROBABILIT" in line_str.upper() or "CONSENSUS" in line_str.upper() or "MODEL" in line_str.upper() or "RI " in line_str.upper()) and not re.search(r'\b[FNU]\b', line_str):
+                # B. Match STRICTLY the line starting with "CONSENSUS"
+                if re.search(r'\b(CONSENSUS|RIPS CONSENSUS|CONS)\b', line_str, re.IGNORECASE) and not re.search(r'\b[FNU]\b', line_str):
                     numbers = re.findall(r'(\d+(?:\.\d+)?)', line_str)
                     clean_probs = [float(n) for n in numbers if float(n) <= 100.0]
                     
                     if clean_probs and threshold_labels:
-                        # Match parsed probabilities to header thresholds
                         for lbl, p_val in zip(threshold_labels, clean_probs):
                             if 0.0 < p_val <= 1.0:
                                 p_val *= 100.0
                             ri_prob_data.append({'Threshold': lbl, 'Probability': p_val})
-                        break  # Found the target RI Probability row
+                        consensus_row_found = True
+                        break
 
-            # --- 3. HARD FALLBACK IF TEXT FORMAT IS UNCONVENTIONAL ---
-            if not ri_prob_data:
-                # Direct regex search for standard 25/30/35/40 kt values anywhere in document
-                all_numbers = []
+            # C. Fallback to Operational/Model line if no row named "CONSENSUS" exists
+            if not consensus_row_found:
                 for line in lines:
-                    if "PROB" in line.upper() or "RI" in line.upper() or "CONS" in line.upper():
-                        nums = re.findall(r'(\d+(?:\.\d+)?)', line)
-                        probs = [float(n) for n in nums if 0 <= float(n) <= 100]
-                        if len(probs) >= 3:
-                            all_numbers = probs
+                    line_str = line.strip()
+                    if re.search(r'\b(OPERATIONAL|TOTAL|RIPS)\b', line_str, re.IGNORECASE) and not re.search(r'\b[FNU]\b', line_str):
+                        numbers = re.findall(r'(\d+(?:\.\d+)?)', line_str)
+                        clean_probs = [float(n) for n in numbers if float(n) <= 100.0]
+                        if clean_probs and threshold_labels:
+                            for lbl, p_val in zip(threshold_labels, clean_probs):
+                                if 0.0 < p_val <= 1.0:
+                                    p_val *= 100.0
+                                ri_prob_data.append({'Threshold': lbl, 'Probability': p_val})
                             break
-
-                default_thresholds = ["24hrs/25 kts", "24hrs/30 kts", "24hrs/35 kts", "24hrs/40 kts"]
-                for idx, t_lbl in enumerate(default_thresholds):
-                    p_val = all_numbers[idx] if idx < len(all_numbers) else 0.0
-                    if 0.0 < p_val <= 1.0:
-                        p_val *= 100.0
-                    ri_prob_data.append({'Threshold': t_lbl, 'Probability': p_val})
 
             df_ri = pd.DataFrame(ri_prob_data).drop_duplicates(subset=['Threshold']) if ri_prob_data else pd.DataFrame()
             return df_ri, df_cond
@@ -168,7 +160,7 @@
             fig = plt.figure(figsize=(16, 10))
             gs = fig.add_gridspec(3, 4, hspace=0.38, wspace=0.35)
             
-            # LEFT SIDE: Rapid Intensification Probabilities (%)
+            # LEFT SIDE: Consensus Rapid Intensification Probabilities
             ax_prob = fig.add_subplot(gs[:, 0:2])
             
             if not df_ri.empty:
@@ -178,7 +170,7 @@
                 
                 ax_prob.set_ylabel("Probability (%)", fontweight='bold', fontsize=11)
                 ax_prob.set_xlabel("Rapid Intensification (RI) Threshold", fontweight='bold', fontsize=11)
-                ax_prob.set_title("Probabilities [%] of Rapid Intensification", fontsize=12, fontweight='bold', pad=12)
+                ax_prob.set_title("Consensus Probabilities [%] of Rapid Intensification", fontsize=12, fontweight='bold', pad=12)
                 
                 ax_prob.set_ylim(0, 110)
                 ax_prob.grid(True, axis='y', linestyle=':', alpha=0.6)
@@ -189,7 +181,7 @@
                     ax_prob.text(bar.get_x() + bar.get_width()/2.0, yval + 2.0, 
                                  f"{int(round(yval))}%", ha='center', va='bottom', fontweight='bold', fontsize=10)
             else:
-                ax_prob.text(0.5, 0.5, "Probabilities [%] Data Not Found", ha='center', va='center', fontsize=12, fontweight='bold')
+                ax_prob.text(0.5, 0.5, "Consensus Probability Data Not Found", ha='center', va='center', fontsize=12, fontweight='bold')
 
             # RIGHT SIDE: Environmental Predictors Grid
             for i, pred in enumerate(predictors[:6]):
