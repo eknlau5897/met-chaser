@@ -140,17 +140,18 @@
     const stormName = "95W";
 
     const observedData = [
-        { time: "2026-08-18 18Z", lat: 19.2, lon: 115.0, wind: 20, mslp: 1000, type: "MD" }
+        { time: "2026-08-18 18Z", lat: 19.2, lon: 115.0, wind: 20, mslp: 1000, type: "MD" },
+        { time: "2026-08-19 00Z", lat: 19.5, lon: 114.5, wind: 25, mslp: 998, type: "MD" },
+        { time: "2026-08-19 06Z", lat: 19.6, lon: 114, wind: 25, mslp: 998, type: "MD" },
+        { time: "2026-08-19 12Z", lat: 19.6, lon: 113.4, wind: 25, mslp: 998, type: "MD" }
     ];
 
     const forecastData = [
-        { hour: 0,  lat: 19.2, lon: 115.0, wind: 20, mslp: 1000, type: "MD" },
-        { hour: 12, lat: 19.7, lon: 111.9, wind: 20, mslp: 998,  type: "MD" },
-        { hour: 24, lat: 19.6, lon: 110.2, wind: 25, mslp: 998,  type: "MD" },
-        { hour: 36, lat: 20.5, lon: 109.9, wind: 25, mslp: 998,  type: "TD" },
-        { hour: 48, lat: 20.7, lon: 109.6, wind: 30, mslp: 996,  type: "TD" },
-        { hour: 60, lat: 21.2, lon: 110.4, wind: 35, mslp: 995,  type: "TS" },
-        { hour: 72, lat: 22.1, lon: 111.3, wind: 25, mslp: 1000, type: "TD" }
+        { hour: 0,  lat: 19.6, lon: 113.4, wind: 25, mslp: 998, type: "MD" },
+        { hour: 12, lat: 19.7, lon: 110.6, wind: 25, mslp: 998,  type: "TD" },
+        { hour: 24, lat: 19.7, lon: 109.1, wind: 30, mslp: 995,  type: "TD" },
+        { hour: 36, lat: 20.3, lon: 108.2, wind: 30, mslp: 995,  type: "TD" },
+        { hour: 48, lat: 21.8, lon: 107.7, wind: 30, mslp: 996,  type: "TD" },
     ];
 
     function getSshwsDetails(wind) {
