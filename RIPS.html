@@ -109,45 +109,56 @@
 
             df_cond = pd.DataFrame(cond_data)
 
-            # --- 2. ROBUST RIPS PROBABILITY TABLE PARSER ---
-            threshold_headers = []
+            # --- 2. MULTI-FORMAT RIPS PROBABILITY PARSER ---
+            lda_vals, lre_vals, cons_vals = [], [], []
+            thresholds = []
+
+            # Format Detection A: Vertical threshold rows (e.g., "25kt / 24h   1.8%   9.9%   5.9%")
+            for line in lines:
+                line_str = line.strip()
+                # Find lines starting with a speed/time threshold
+                thresh_match = re.match(r'^(\d+\s*kt\s*/\s*\d+\s*[ha-z]*)', line_str, re.IGNORECASE)
+                if thresh_match:
+                    t_label = thresh_match.group(1).replace(" ", "")
+                    # Extract percentages on this line
+                    pcts = re.findall(r'(\d+(?:\.\d+)?)\s*%', line_str)
+                    if len(pcts) >= 3:
+                        thresholds.append(t_label)
+                        lda_vals.append(f"{float(pcts[0]):.1f}%")
+                        lre_vals.append(f"{float(pcts[1]):.1f}%")
+                        cons_vals.append(f"{float(pcts[2]):.1f}%")
+
+            # Format Detection B: Horizontal method rows (Fallback)
+            if not lda_vals:
+                # Capture inline header row if present
+                for line in lines:
+                    matches = re.findall(r'(\d+\s*kt\s*/\s*\d+\s*[ha-z]*)', line, re.IGNORECASE)
+                    if len(matches) >= 3 and not thresholds:
+                        thresholds = [m.replace(" ", "") for m in matches]
+
+                if not thresholds:
+                    thresholds = ["20kt/12h", "25kt/24h", "30kt/24h", "35kt/24h", "40kt/24h", "45kt/36h"]
+
+                for line in lines:
+                    line_str = line.strip()
+                    if re.search(r'\b[FNU]\b', line_str):
+                        continue
+
+                    pcts = [f"{float(n):.1f}%" for n in re.findall(r'(\d+(?:\.\d+)?)\s*%', line_str)]
+                    if len(pcts) >= len(thresholds):
+                        if re.search(r'\bLDA\b', line_str, re.IGNORECASE):
+                            lda_vals = pcts[:len(thresholds)]
+                        elif re.search(r'\bLRE\b', line_str, re.IGNORECASE):
+                            lre_vals = pcts[:len(thresholds)]
+                        elif re.search(r'\b(CONSENSUS|CONS)\b', line_str, re.IGNORECASE):
+                            cons_vals = pcts[:len(thresholds)]
+
             prob_table = {}
+            if lda_vals: prob_table['LDA-Method'] = lda_vals
+            if lre_vals: prob_table['LRE-Method'] = lre_vals
+            if cons_vals: prob_table['CONSENSUS'] = cons_vals
 
-            # Step A: Extract Headers or Vertical Thresholds
-            for line in lines:
-                line_str = line.strip()
-                # Capture inline threshold formats (e.g., "20kt / 12h", "25kt / 24h", etc.)
-                matches = re.findall(r'(\d+\s*kt\s*/\s*\d+\s*h(?:r)?)', line_str, re.IGNORECASE)
-                if len(matches) >= 3 and not threshold_headers:
-                    threshold_headers = [m.replace(" ", "") for m in matches]
-
-            # Hard fallback for default standard RIPS thresholds if header line is structured vertically
-            if not threshold_headers:
-                threshold_headers = ["20kt/12h", "25kt/24h", "30kt/24h", "35kt/24h", "40kt/24h", "45kt/36h"]
-
-            # Step B: Parse Row Values for LDA, LRE, and CONSENSUS
-            for line in lines:
-                line_str = line.strip()
-                if not line_str or re.search(r'\b[FNU]\b', line_str):
-                    continue
-
-                # Clean numeric values
-                nums = re.findall(r'(\d+(?:\.\d+)?)\s*%', line_str)
-                if not nums:
-                    # Alternative search for numbers without % sign
-                    nums = [n for n in re.findall(r'(\d+(?:\.\d+)?)', line_str) if float(n) <= 100.0]
-
-                if nums and len(nums) >= len(threshold_headers):
-                    formatted_vals = [f"{float(n):.1f}%" for n in nums[:len(threshold_headers)]]
-                    
-                    if re.search(r'\bLDA\b', line_str, re.IGNORECASE):
-                        prob_table['LDA-Method'] = formatted_vals
-                    elif re.search(r'\bLRE\b', line_str, re.IGNORECASE):
-                        prob_table['LRE-Method'] = formatted_vals
-                    elif re.search(r'\b(CONSENSUS|CONS)\b', line_str, re.IGNORECASE):
-                        prob_table['CONSENSUS'] = formatted_vals
-
-            return prob_table, threshold_headers, df_cond
+            return prob_table, thresholds, df_cond
 
         def build_ripa_side_by_side_fig(prob_table, threshold_headers, df_cond, title_filename):
             color_map = {'F': '#2ca02c', 'N': '#7f7f7f', 'U': '#d62728'}
@@ -156,19 +167,19 @@
             fig = plt.figure(figsize=(16, 9))
             gs = fig.add_gridspec(3, 4, hspace=0.48, wspace=0.35)
             
-            # LEFT SIDE: Clean, non-overlapping Table
+            # LEFT SIDE: Render Probabilities Table
             ax_table = fig.add_subplot(gs[:, 0:2])
             ax_table.axis('off')
 
-            col_labels = ["Method"] + threshold_headers
+            methods_order = ['LDA-Method', 'LRE-Method', 'CONSENSUS']
             cell_text = []
 
-            methods_order = ['LDA-Method', 'LRE-Method', 'CONSENSUS']
             for m in methods_order:
                 if m in prob_table:
                     cell_text.append([m] + prob_table[m])
 
-            if cell_text:
+            if cell_text and threshold_headers:
+                col_labels = ["Method"] + threshold_headers
                 table = ax_table.table(
                     cellText=cell_text,
                     colLabels=col_labels,
@@ -180,13 +191,12 @@
                 table.set_fontsize(8.5)
                 table.scale(1.0, 1.8)
 
-                # Format Header and Rows
                 for (r, c), cell in table.get_celld().items():
                     if r == 0:
                         cell.set_facecolor('#2b5c8f')
                         cell.get_text().set_color('white')
                         cell.get_text().set_weight('bold')
-                    elif r == len(cell_text):  # Highlight Consensus Row
+                    elif r == len(cell_text):  # Consensus Row Highlight
                         cell.set_facecolor('#e8f4f8')
                         cell.get_text().set_weight('bold')
                     else:
@@ -194,7 +204,7 @@
 
                 ax_table.set_title("Rapid Intensification Probabilities (%)", fontsize=11, fontweight='bold', pad=12)
             else:
-                ax_table.text(0.5, 0.5, "Parsing Data from RIPS.txt...", ha='center', va='center', fontsize=11, fontweight='bold')
+                ax_table.text(0.5, 0.5, "Unable to parse probability columns from RIPS.txt", ha='center', va='center', fontsize=11, fontweight='bold', color='red')
 
             # RIGHT SIDE: Environmental Predictors Grid
             for i, pred in enumerate(predictors[:6]):
@@ -254,7 +264,7 @@
                     pass
 
                 if not raw_text or len(raw_text.strip()) == 0:
-                    set_status("Error: Could not read 'RIPS.txt'. Ensure it is placed next to index.html.")
+                    set_status("Error: Could not read 'RIPS.txt'. Place RIPS.txt in the exact same directory as index.html.")
                     return
 
                 prob_table, threshold_headers, df_cond = parse_rips_data(raw_text)
