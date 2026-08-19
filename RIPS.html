@@ -78,58 +78,13 @@
         def set_status(msg):
             document.getElementById("status-box").innerText = f"Status: {msg}"
 
-        def parse_rips_consensus(raw_text):
+        def parse_rips_consensus_robust(raw_text):
             lines = raw_text.splitlines()
             consensus_data = []
             cond_data = []
             hours = [6, 12, 18, 24, 36, 48, 60, 72]
             
-            # --- 1. PARSE CONSENSUS / CLIMATOLOGY VALUES ---
-            for line in lines:
-                line_str = line.strip()
-                if not line_str:
-                    continue
-
-                # Matches lines starting with Consensus, Cons, Climo, or Model Mean
-                if re.search(r'^\b(CONSENSUS|CONS|CLIMO|SAMPLE MEAN|OPERATIONAL)\b', line_str, re.IGNORECASE):
-                    # Extract threshold or category label if present
-                    label_match = re.search(r'^([A-Za-z0-9\s/]+?)(?:\:|\b\d)', line_str)
-                    label = label_match.group(1).strip() if label_match else "Consensus"
-                    
-                    # Extract numeric values
-                    numbers = re.findall(r'(\d+(?:\.\d+)?)', line_str)
-                    if numbers:
-                        for idx, num in enumerate(numbers):
-                            val = float(num)
-                            if 0.0 < val <= 1.0:
-                                val *= 100.0
-                            category_name = f"{label} #{idx+1}" if len(numbers) > 1 else label
-                            consensus_data.append({'Metric': category_name, 'Value': val})
-
-            # --- 2. FALLBACK CONSENSUS PARSER (Look for Threshold + Consensus rows) ---
-            if not consensus_data:
-                thresh_line = None
-                cons_line = None
-                for line in lines:
-                    line_str = line.strip()
-                    if "THRESHOLD" in line_str.upper() or "KT" in line_str.upper():
-                        thresh_line = line_str
-                    if "CONS" in line_str.upper() or "AVG" in line_str.upper() or "MEAN" in line_str.upper():
-                        cons_line = line_str
-
-                if thresh_line and cons_line:
-                    thresholds = re.findall(r'(\d+\s*kt(?:\s*/\s*\d+\s*hr)?)', thresh_line, re.IGNORECASE)
-                    values = re.findall(r'(\d+(?:\.\d+)?)', cons_line)
-                    values = [float(v) for v in values if float(v) <= 100.0]
-                    
-                    if thresholds and values:
-                        for t, v in zip(thresholds, values[-len(thresholds):]):
-                            val = float(v)
-                            if 0.0 < val <= 1.0:
-                                val *= 100.0
-                            consensus_data.append({'Metric': t.strip(), 'Value': val})
-
-            # --- 3. PARSE ENVIRONMENTAL PREDICTORS (Right Side Grid) ---
+            # --- 1. PARSE ENVIRONMENTAL PREDICTORS ---
             for line in lines:
                 line_str = line.strip()
                 if not line_str:
@@ -153,9 +108,40 @@
                                 'Rating': rating
                             })
 
-            df_cons = pd.DataFrame(consensus_data).drop_duplicates(subset=['Metric']) if consensus_data else pd.DataFrame()
             df_cond = pd.DataFrame(cond_data)
-            
+
+            # --- 2. CONSENSUS / PROBABILITY EXTRACTION ---
+            for line in lines:
+                line_str = line.strip()
+                if not line_str:
+                    continue
+
+                if re.search(r'\b(CONSENSUS|CONS|PROB|CLIMO|MEAN|MODEL|OPERATIONAL|RIPS)\b', line_str, re.IGNORECASE):
+                    if len(re.findall(r'\b[FNU]\b', line_str)) == 8:
+                        continue
+
+                    numbers = re.findall(r'(\d+(?:\.\d+)?)', line_str)
+                    clean_nums = [float(n) for n in numbers if float(n) <= 100.0]
+                    
+                    if clean_nums:
+                        label_match = re.match(r'^([A-Za-z0-9\s/_\-\%]+?)(?:\:|\b\d)', line_str)
+                        base_label = label_match.group(1).strip() if label_match else "Consensus"
+                        
+                        for idx, val in enumerate(clean_nums):
+                            if 0.0 < val <= 1.0:
+                                val *= 100.0
+                            
+                            lbl = f"{base_label} ({idx+1})" if len(clean_nums) > 1 else base_label
+                            consensus_data.append({'Metric': lbl, 'Value': val})
+
+            # --- 3. FALLBACK TO PREDICTOR 24-HOUR VALUES ---
+            if not consensus_data and not df_cond.empty:
+                sub_24 = df_cond[df_cond['ForecastHour'] == 24]
+                for _, row in sub_24.iterrows():
+                    short_name = row['Predictor'][:12] + ".." if len(row['Predictor']) > 14 else row['Predictor']
+                    consensus_data.append({'Metric': f"{short_name} (24h)", 'Value': row['Value']})
+
+            df_cons = pd.DataFrame(consensus_data).drop_duplicates(subset=['Metric']) if consensus_data else pd.DataFrame()
             return df_cons, df_cond
 
         def build_ripa_side_by_side_fig(df_cons, df_cond, title_filename):
@@ -165,28 +151,34 @@
             fig = plt.figure(figsize=(16, 10))
             gs = fig.add_gridspec(3, 4, hspace=0.38, wspace=0.35)
             
-            # LEFT SIDE: Consensus Bar Chart
+            # LEFT SIDE: Option A Vertical Bar Chart
             ax_prob = fig.add_subplot(gs[:, 0:2])
             
             if not df_cons.empty:
-                bars = ax_prob.bar(df_cons['Metric'], df_cons['Value'], color='#2b5c8f', width=0.45, edgecolor='black', alpha=0.85)
-                ax_prob.set_ylabel("Consensus Value / Probability (%)", fontweight='bold', fontsize=11)
-                ax_prob.set_title("RIPS Model Consensus", fontsize=12, fontweight='bold', pad=12)
+                plot_cons = df_cons.head(6)
                 
-                # Auto-scale Y limits depending on max value
-                max_val = df_cons['Value'].max()
-                ax_prob.set_ylim(0, max(110, max_val * 1.15))
+                # Vertical Bars (X = Categories, Y = Probability/Value)
+                bars = ax_prob.bar(plot_cons['Metric'], plot_cons['Value'], color='#2b5c8f', width=0.45, edgecolor='black', alpha=0.85)
                 
+                # Explicit Axes Labels
+                ax_prob.set_ylabel("Probability (%)", fontweight='bold', fontsize=11)
+                ax_prob.set_xlabel("Threshold / Metric Category", fontweight='bold', fontsize=11)
+                ax_prob.set_title("RIPS Probabilities & Consensus Metrics", fontsize=12, fontweight='bold', pad=12)
+                
+                # Y-Axis Range set to 0–110%
+                ax_prob.set_ylim(0, 110)
                 ax_prob.grid(True, axis='y', linestyle=':', alpha=0.6)
-                ax_prob.tick_params(axis='x', rotation=15)
+                ax_prob.tick_params(axis='x', rotation=15, labelsize=9)
                 
+                # Annotate exact percentage above each vertical bar
                 for bar in bars:
                     yval = bar.get_height()
-                    ax_prob.text(bar.get_x() + bar.get_width()/2.0, yval + 1.5, f"{int(yval)}%", ha='center', va='bottom', fontweight='bold', fontsize=10)
+                    ax_prob.text(bar.get_x() + bar.get_width()/2.0, yval + 2.0, 
+                                 f"{int(round(yval))}%", ha='center', va='bottom', fontweight='bold', fontsize=9)
             else:
-                ax_prob.text(0.5, 0.5, "Consensus Data Not Available", ha='center', va='center', fontsize=12, fontweight='bold')
+                ax_prob.text(0.5, 0.5, "No Data Parsed From Product Text", ha='center', va='center', fontsize=12, fontweight='bold')
 
-            # RIGHT SIDE: Environmental Predictors
+            # RIGHT SIDE: Environmental Predictors Grid
             for i, pred in enumerate(predictors[:6]):
                 row = i // 2
                 col = 2 + (i % 2)
@@ -231,9 +223,8 @@
                 raw_text = ""
                 filename = "RIPS.txt"
 
-                # Fetch data from repository
                 try:
-                    resp_txt = await pyfetch(f"RIPS.txt{cache_buster}")
+                    resp_txt = await pyfetch(f"data/latest_ripa.txt{cache_buster}")
                     if resp_txt.ok:
                         raw_text = await resp_txt.string()
                     
@@ -247,8 +238,7 @@
                     set_status("Error: 'data/latest_ripa.txt' not found or empty. Please run update_ripa.sh to sync.")
                     return
 
-                # Parse and render plot
-                df_cons, df_cond = parse_rips_consensus(raw_text)
+                df_cons, df_cond = parse_rips_consensus_robust(raw_text)
                 fig = build_ripa_side_by_side_fig(df_cons, df_cond, title_filename=filename)
 
                 set_status(f"Successfully rendered latest product: {filename}")
