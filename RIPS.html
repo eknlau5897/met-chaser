@@ -224,7 +224,7 @@
                 filename = "RIPS.txt"
 
                 try:
-                    resp_txt = await pyfetch(f"data/latest_ripa.txt{cache_buster}")
+                    resp_txt = await pyfetch(f"RIPS.txt{cache_buster}")
                     if resp_txt.ok:
                         raw_text = await resp_txt.string()
                     
