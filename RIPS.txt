@@ -1,7 +1,7 @@
  Rapid Intensification Guidance
 
- WP952026 260819 06UTC
- Storm Located at           :     19.50    111.80
+ WP952026 260819 12UTC
+ Storm Located at           :     19.70    111.40
  Guidance run with Vmax [kt]:    20.
 
 
@@ -9,44 +9,44 @@
  Predictor                Value    Favorable(F)/Unfavorable(U) 
  INTENSITY (VMAX) [kt]    20.00             F
  12-H DELTA VMAX  [kt]     0.00             N
- CORE SIZE        [km]     5.40             F
- CONVECTION <-50C [%]     20.00             U
- CONVECTION <-60C [%]     12.00             U
- IR CORE SYMMETRY [K]      6.70             F
- TC SIZE          [%]    125.00             N
+ CORE SIZE        [km]     3.00             F
+ CONVECTION <-50C [%]     33.00             U
+ CONVECTION <-60C [%]     19.00             U
+ IR CORE SYMMETRY [K]      6.20             F
+ TC SIZE          [%]    124.00             N
 
 
  Forecast Conditions:
  Predictor              Value                                         Favorable(F)/Unfavor(U) 
                            6    12    18    24    36    48    60    72  6 12 18 24 36 48 60 72
- Wind Shear [kt]        27.5  23.1  21.6  20.7  24.4  23.5  18.1  21.1  N  N  N  N  N  N  F  N
- Ocean Heat [kJ/cm^2]   11.0  10.0   3.0  16.0  16.0  16.0  45.0  45.0  U  U  U  U  U  U  N  N
+ Wind Shear [kt]        31.6  27.9  27.4  25.1  27.4  25.8  31.2  27.4  U  N  N  N  N  N  U  N
+ Ocean Heat [kJ/cm^2]   46.0  48.0  13.0  16.0  16.0  55.0  59.0  64.0  N  N  U  U  U  N  N  N
  Potential [kt]        145.0 145.0 145.0 145.0 145.0 145.0 145.0 145.0  F  F  F  F  F  F  F  F
- 200mb Divg [10^6/s]    62.0  62.0  75.0  84.0  50.0  57.0  47.0  36.0  N  N  N  N  N  N  N  N
- Humidity 700-500 hPa   75.0  73.0  73.0  73.0  73.0  77.0  73.0  76.0  F  N  N  N  N  F  N  F
- T Advectio [10^6 K/s]   0.0  -2.0   0.0  -4.0  -5.0  -5.0  -7.0  -4.0  N  N  N  F  F  F  F  F
+ 200mb Divg [10^6/s]    97.0  52.0  42.0  27.0  20.0 -12.0 -21.0 -24.0  F  N  N  U  U  U VU VU
+ Humidity 700-500 hPa   72.0  71.0  70.0  70.0  71.0  70.0  74.0  72.0  N  N  N  N  N  N  N  N
+ T Advectio [10^6 K/s]   0.0   0.0   0.0  -5.0  -4.0  -1.0  -1.0   0.0  N  N  N  F  F  N  N  N
 
 
     Probabilities[%] of Rapid intensification
  Thresholds   LDA-Method  LRE-Method  CONSENSUS
  20kt / 12h        0.0%        0.5%        0.2%
- 25kt / 24h        0.9%        8.8%        4.9%
- 30kt / 24h        0.3%        2.6%        1.4%
- 35kt / 24h        0.1%        2.2%        1.1%
- 40kt / 24h        0.0%        2.1%        1.1%
- 45kt / 36h        1.1%       13.3%        7.2%
- 55kt / 36h        0.4%        3.9%        2.1%
- 55kt / 48h        2.6%        6.9%        4.7%
- 70kt / 48h        0.4%        4.3%        2.4%
- 65kt / 72h        8.3%       22.9%       15.6%
+ 25kt / 24h        0.8%        7.5%        4.2%
+ 30kt / 24h        0.2%        2.1%        1.1%
+ 35kt / 24h        0.1%        1.8%        0.9%
+ 40kt / 24h        0.0%        1.5%        0.8%
+ 45kt / 36h        0.4%       11.0%        5.7%
+ 55kt / 36h        0.1%        2.9%        1.5%
+ 55kt / 48h        0.9%        4.3%        2.6%
+ 70kt / 48h        0.1%        2.6%        1.4%
+ 65kt / 72h        1.9%       10.3%        6.1%
  Convective Decapatation Guidance
 
  For SSTs greater than 27.5C
 
  Current sst along the future track = 28.82
 
- WP952026 260819 06UTC
- Storm Located at           :     19.50    111.80
+ WP952026 260819 12UTC
+ Storm Located at           :     19.70    111.40
  Guidance run with Vmax [kt]:    20.
 
 
@@ -54,16 +54,16 @@
  Predictor                Value    Favorable(F)/Unfavorable(U) 
  INTENSITY (VMAX) [kt]    20.00             U
  12-H DELTA VMAX  [kt]     0.00             N
- CORE SIZE        [km]     5.40             F
- TC SIZE          [%]    125.00             N
+ CORE SIZE        [km]     3.00             F
+ TC SIZE          [%]    124.00             N
 
 
  Forecast Conditions:
  Predictor              Value                                         Favorable(F)/Unfavor(U) 
                            6    12    18    24    36    48    60    72  6 12 18 24 36 48 60 72
- Wind Shear [kt]        27.5  23.1  21.6  20.7  24.4  23.5  18.1  21.1  N  N  N  N  N  N  N  N
- Humidity 700-500 hPa   75.0  73.0  73.0  73.0  73.0  77.0  73.0  76.0  U  N  N  N  N  U  N  U
- T Advectio [10^6 K/s]   0.0  -2.0   0.0  -4.0  -5.0  -5.0  -7.0  -4.0  N  N  N  U  U  U  U  U
+ Wind Shear [kt]        31.6  27.9  27.4  25.1  27.4  25.8  31.2  27.4  N  N  N  N  N  N  N  N
+ Humidity 700-500 hPa   72.0  71.0  70.0  70.0  71.0  70.0  74.0  72.0  N  N  N  N  N  N  N  N
+ T Advectio [10^6 K/s]   0.0   0.0   0.0  -5.0  -4.0  -1.0  -1.0   0.0  N  N  N  U  U  N  N  N
 
 
     Probabilities[%] of Storm Decapitation
