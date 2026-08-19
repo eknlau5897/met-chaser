@@ -109,28 +109,43 @@
 
             df_cond = pd.DataFrame(cond_data)
 
-            # --- 2. PARSE EXACT RIPS PROBABILITY TABLE ---
+            # --- 2. ROBUST RIPS PROBABILITY TABLE PARSER ---
             threshold_headers = []
             prob_table = {}
 
+            # Step A: Extract Headers or Vertical Thresholds
             for line in lines:
                 line_str = line.strip()
+                # Capture inline threshold formats (e.g., "20kt / 12h", "25kt / 24h", etc.)
+                matches = re.findall(r'(\d+\s*kt\s*/\s*\d+\s*h(?:r)?)', line_str, re.IGNORECASE)
+                if len(matches) >= 3 and not threshold_headers:
+                    threshold_headers = [m.replace(" ", "") for m in matches]
 
-                if re.search(r'\d+\s*kt', line_str, re.IGNORECASE) and not re.search(r'\b[FNU]\b', line_str):
-                    matches = re.findall(r'(\d+)\s*kt(?:\s*/\s*(\d+)\s*hr)?', line_str, re.IGNORECASE)
-                    if matches and not threshold_headers:
-                        threshold_headers = [f"{kts} kt / {hrs if hrs else '24'} hr" for kts, hrs in matches]
+            # Hard fallback for default standard RIPS thresholds if header line is structured vertically
+            if not threshold_headers:
+                threshold_headers = ["20kt/12h", "25kt/24h", "30kt/24h", "35kt/24h", "40kt/24h", "45kt/36h"]
 
-                if not re.search(r'\b[FNU]\b', line_str):
-                    if re.search(r'\b(LDA|LDA-METHOD)\b', line_str, re.IGNORECASE):
-                        nums = re.findall(r'(\d+(?:\.\d+)?)', line_str)
-                        prob_table['LDA-Method'] = [f"{float(n):.1f}%" if float(n) <= 100 else f"{float(n)*100:.1f}%" for n in nums[-len(threshold_headers):]]
-                    elif re.search(r'\b(LRE|LRE-METHOD)\b', line_str, re.IGNORECASE):
-                        nums = re.findall(r'(\d+(?:\.\d+)?)', line_str)
-                        prob_table['LRE-Method'] = [f"{float(n):.1f}%" if float(n) <= 100 else f"{float(n)*100:.1f}%" for n in nums[-len(threshold_headers):]]
-                    elif re.search(r'\b(CONSENSUS|RIPS CONSENSUS|CONS)\b', line_str, re.IGNORECASE):
-                        nums = re.findall(r'(\d+(?:\.\d+)?)', line_str)
-                        prob_table['CONSENSUS'] = [f"{float(n):.1f}%" if float(n) <= 100 else f"{float(n)*100:.1f}%" for n in nums[-len(threshold_headers):]]
+            # Step B: Parse Row Values for LDA, LRE, and CONSENSUS
+            for line in lines:
+                line_str = line.strip()
+                if not line_str or re.search(r'\b[FNU]\b', line_str):
+                    continue
+
+                # Clean numeric values
+                nums = re.findall(r'(\d+(?:\.\d+)?)\s*%', line_str)
+                if not nums:
+                    # Alternative search for numbers without % sign
+                    nums = [n for n in re.findall(r'(\d+(?:\.\d+)?)', line_str) if float(n) <= 100.0]
+
+                if nums and len(nums) >= len(threshold_headers):
+                    formatted_vals = [f"{float(n):.1f}%" for n in nums[:len(threshold_headers)]]
+                    
+                    if re.search(r'\bLDA\b', line_str, re.IGNORECASE):
+                        prob_table['LDA-Method'] = formatted_vals
+                    elif re.search(r'\bLRE\b', line_str, re.IGNORECASE):
+                        prob_table['LRE-Method'] = formatted_vals
+                    elif re.search(r'\b(CONSENSUS|CONS)\b', line_str, re.IGNORECASE):
+                        prob_table['CONSENSUS'] = formatted_vals
 
             return prob_table, threshold_headers, df_cond
 
@@ -138,23 +153,22 @@
             color_map = {'F': '#2ca02c', 'N': '#7f7f7f', 'U': '#d62728'}
             predictors = df_cond['Predictor'].unique() if not df_cond.empty else []
             
-            # Expanded canvas dimension to comfortably hold table + 6 right-side plots
             fig = plt.figure(figsize=(16, 9))
             gs = fig.add_gridspec(3, 4, hspace=0.48, wspace=0.35)
             
-            # LEFT SIDE: Clean table placement with strict bounds
+            # LEFT SIDE: Clean, non-overlapping Table
             ax_table = fig.add_subplot(gs[:, 0:2])
             ax_table.axis('off')
 
-            if prob_table and threshold_headers:
-                col_labels = ["Method"] + threshold_headers
-                cell_text = []
+            col_labels = ["Method"] + threshold_headers
+            cell_text = []
 
-                methods_order = ['LDA-Method', 'LRE-Method', 'CONSENSUS']
-                for m in methods_order:
-                    if m in prob_table:
-                        cell_text.append([m] + prob_table[m])
+            methods_order = ['LDA-Method', 'LRE-Method', 'CONSENSUS']
+            for m in methods_order:
+                if m in prob_table:
+                    cell_text.append([m] + prob_table[m])
 
+            if cell_text:
                 table = ax_table.table(
                     cellText=cell_text,
                     colLabels=col_labels,
@@ -164,23 +178,23 @@
 
                 table.auto_set_font_size(False)
                 table.set_fontsize(8.5)
-                table.scale(1.0, 1.6)
+                table.scale(1.0, 1.8)
 
-                # Style Header and Consensus Row
+                # Format Header and Rows
                 for (r, c), cell in table.get_celld().items():
                     if r == 0:
                         cell.set_facecolor('#2b5c8f')
                         cell.get_text().set_color('white')
                         cell.get_text().set_weight('bold')
-                    elif r == len(cell_text): 
+                    elif r == len(cell_text):  # Highlight Consensus Row
                         cell.set_facecolor('#e8f4f8')
                         cell.get_text().set_weight('bold')
                     else:
                         cell.set_facecolor('#ffffff')
 
-                ax_table.set_title("Rapid Intensification Probabilities (%)", fontsize=11, fontweight='bold', pad=10)
+                ax_table.set_title("Rapid Intensification Probabilities (%)", fontsize=11, fontweight='bold', pad=12)
             else:
-                ax_table.text(0.5, 0.5, "RIPS Method Probabilities Not Found", ha='center', va='center', fontsize=11, fontweight='bold')
+                ax_table.text(0.5, 0.5, "Parsing Data from RIPS.txt...", ha='center', va='center', fontsize=11, fontweight='bold')
 
             # RIGHT SIDE: Environmental Predictors Grid
             for i, pred in enumerate(predictors[:6]):
@@ -217,39 +231,36 @@
             ]
             fig.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(0.98, 0.97), fontsize=8.5)
             
-            # Ensure top/bottom margins don't overlap figure title
             fig.subplots_adjust(top=0.90, bottom=0.08, left=0.05, right=0.95)
             return fig
 
         async def main():
             try:
-                set_status("Loading local RIPS.txt file...")
+                set_status("Loading RIPS.txt file...")
                 
                 cache_buster = f"?t={int(time.time())}"
                 raw_text = ""
                 filename = "RIPS.txt"
 
-                # Direct fetch attempt for RIPS.txt
                 try:
                     resp_txt = await pyfetch(f"RIPS.txt{cache_buster}")
                     if resp_txt.ok:
                         raw_text = await resp_txt.string()
                     else:
-                        # Fallback to data directory if RIPS.txt is inside /data
                         resp_txt_data = await pyfetch(f"data/RIPS.txt{cache_buster}")
                         if resp_txt_data.ok:
                             raw_text = await resp_txt_data.string()
-                except Exception as fetch_err:
-                    print(f"Fetch error: {fetch_err}")
+                except Exception:
+                    pass
 
                 if not raw_text or len(raw_text.strip()) == 0:
-                    set_status("Error: 'RIPS.txt' could not be loaded. Ensure RIPS.txt is in the same folder as index.html.")
+                    set_status("Error: Could not read 'RIPS.txt'. Ensure it is placed next to index.html.")
                     return
 
                 prob_table, threshold_headers, df_cond = parse_rips_data(raw_text)
                 fig = build_ripa_side_by_side_fig(prob_table, threshold_headers, df_cond, title_filename=filename)
 
-                set_status(f"Successfully rendered latest product: {filename}")
+                set_status(f"Successfully rendered product from {filename}")
                 display(fig, target="plot-container")
                 
             except Exception as e:
