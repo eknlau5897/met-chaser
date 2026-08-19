@@ -223,25 +223,27 @@
 
         async def main():
             try:
-                set_status("Loading live RIPS product data from repository...")
+                set_status("Loading local RIPS.txt file...")
                 
                 cache_buster = f"?t={int(time.time())}"
                 raw_text = ""
                 filename = "RIPS.txt"
 
+                # Direct fetch attempt for RIPS.txt
                 try:
-                    resp_txt = await pyfetch(f"RIPS{cache_buster}")
+                    resp_txt = await pyfetch(f"RIPS.txt{cache_buster}")
                     if resp_txt.ok:
                         raw_text = await resp_txt.string()
-                    
-                    resp_name = await pyfetch(f"RIPS.txt{cache_buster}")
-                    if resp_name.ok:
-                        filename = (await resp_name.string()).strip()
-                except Exception:
-                    pass
+                    else:
+                        # Fallback to data directory if RIPS.txt is inside /data
+                        resp_txt_data = await pyfetch(f"data/RIPS.txt{cache_buster}")
+                        if resp_txt_data.ok:
+                            raw_text = await resp_txt_data.string()
+                except Exception as fetch_err:
+                    print(f"Fetch error: {fetch_err}")
 
                 if not raw_text or len(raw_text.strip()) == 0:
-                    set_status("Error: 'data/latest_ripa.txt' not found or empty. Please run update_ripa.sh to sync.")
+                    set_status("Error: 'RIPS.txt' could not be loaded. Ensure RIPS.txt is in the same folder as index.html.")
                     return
 
                 prob_table, threshold_headers, df_cond = parse_rips_data(raw_text)
