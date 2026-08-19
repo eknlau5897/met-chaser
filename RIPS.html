@@ -78,9 +78,9 @@
         def set_status(msg):
             document.getElementById("status-box").innerText = f"Status: {msg}"
 
-        def parse_rips_consensus_robust(raw_text):
+        def parse_rips_data(raw_text):
             lines = raw_text.splitlines()
-            consensus_data = []
+            ri_prob_data = []
             cond_data = []
             hours = [6, 12, 18, 24, 36, 48, 60, 72]
             
@@ -110,73 +110,83 @@
 
             df_cond = pd.DataFrame(cond_data)
 
-            # --- 2. CONSENSUS / PROBABILITY EXTRACTION ---
+            # --- 2. TARGETED RAPID INTENSIFICATION (RI) PROBABILITY PARSER ---
+            # Looks for RI threshold headers/rows (e.g., "25 kt / 24 hr", "30 KT", "RI PROBABILITY", etc.)
             for line in lines:
                 line_str = line.strip()
                 if not line_str:
                     continue
 
-                if re.search(r'\b(CONSENSUS|CONS|PROB|CLIMO|MEAN|MODEL|OPERATIONAL|RIPS)\b', line_str, re.IGNORECASE):
-                    if len(re.findall(r'\b[FNU]\b', line_str)) == 8:
-                        continue
-
-                    numbers = re.findall(r'(\d+(?:\.\d+)?)', line_str)
-                    clean_nums = [float(n) for n in numbers if float(n) <= 100.0]
+                # Pattern A: Standard RI table lines containing knot thresholds (e.g. 25KT, 30KT, 35KT, 40KT)
+                if re.search(r'\b\d+\s*(?:KT|KTS|KNOTS)\b', line_str, re.IGNORECASE) or "RI" in line_str.upper():
+                    # Extract threshold labels (e.g., "25 kt", "30 kt / 24hr")
+                    threshold_matches = re.findall(r'(\d+\s*kt(?:\s*/\s*\d+\s*hr)?)', line_str, re.IGNORECASE)
                     
-                    if clean_nums:
-                        label_match = re.match(r'^([A-Za-z0-9\s/_\-\%]+?)(?:\:|\b\d)', line_str)
-                        base_label = label_match.group(1).strip() if label_match else "Consensus"
+                    # Extract numbers associated with percentages
+                    numbers = re.findall(r'(\d+(?:\.\d+)?)', line_str)
+                    probs = [float(n) for n in numbers if float(n) <= 100.0]
+
+                    if threshold_matches and probs:
+                        for t_label, p_val in zip(threshold_matches, probs[-len(threshold_matches):]):
+                            if 0.0 < p_val <= 1.0:
+                                p_val *= 100.0
+                            ri_prob_data.append({'Threshold': t_label.strip().upper(), 'Probability': p_val})
+
+            # --- 3. FALLBACK RI PROBABILITY PARSER ---
+            # If explicit threshold headers aren't paired on the same line, scan line-by-line for consensus RI
+            if not ri_prob_data:
+                for line in lines:
+                    line_str = line.strip()
+                    if re.search(r'^\b(RI|PROB|CONSENSUS|OPERATIONAL)\b', line_str, re.IGNORECASE):
+                        numbers = re.findall(r'(\d+(?:\.\d+)?)', line_str)
+                        probs = [float(n) for n in numbers if float(n) <= 100.0]
                         
-                        for idx, val in enumerate(clean_nums):
-                            if 0.0 < val <= 1.0:
-                                val *= 100.0
-                            
-                            lbl = f"{base_label} ({idx+1})" if len(clean_nums) > 1 else base_label
-                            consensus_data.append({'Metric': lbl, 'Value': val})
+                        if probs:
+                            # Standard RIPS RI thresholds: 25kt, 30kt, 35kt, 40kt
+                            standard_thresholds = ["25 kt / 24h", "30 kt / 24h", "35 kt / 24h", "40 kt / 24h"]
+                            for idx, p_val in enumerate(probs[:4]):
+                                if 0.0 < p_val <= 1.0:
+                                    p_val *= 100.0
+                                lbl = standard_thresholds[idx] if idx < len(standard_thresholds) else f"Threshold #{idx+1}"
+                                ri_prob_data.append({'Threshold': lbl, 'Probability': p_val})
 
-            # --- 3. FALLBACK TO PREDICTOR 24-HOUR VALUES ---
-            if not consensus_data and not df_cond.empty:
-                sub_24 = df_cond[df_cond['ForecastHour'] == 24]
-                for _, row in sub_24.iterrows():
-                    short_name = row['Predictor'][:12] + ".." if len(row['Predictor']) > 14 else row['Predictor']
-                    consensus_data.append({'Metric': f"{short_name} (24h)", 'Value': row['Value']})
+            df_ri = pd.DataFrame(ri_prob_data).drop_duplicates(subset=['Threshold']) if ri_prob_data else pd.DataFrame()
+            return df_ri, df_cond
 
-            df_cons = pd.DataFrame(consensus_data).drop_duplicates(subset=['Metric']) if consensus_data else pd.DataFrame()
-            return df_cons, df_cond
-
-        def build_ripa_side_by_side_fig(df_cons, df_cond, title_filename):
+        def build_ripa_side_by_side_fig(df_ri, df_cond, title_filename):
             color_map = {'F': '#2ca02c', 'N': '#7f7f7f', 'U': '#d62728'}
             predictors = df_cond['Predictor'].unique() if not df_cond.empty else []
             
             fig = plt.figure(figsize=(16, 10))
             gs = fig.add_gridspec(3, 4, hspace=0.38, wspace=0.35)
             
-            # LEFT SIDE: Option A Vertical Bar Chart
+            # LEFT SIDE: Rapid Intensification Probabilities (Option A - Vertical Bar Chart)
             ax_prob = fig.add_subplot(gs[:, 0:2])
             
-            if not df_cons.empty:
-                plot_cons = df_cons.head(6)
+            if not df_ri.empty:
+                # Plot RI thresholds
+                plot_ri = df_ri.head(6)
                 
-                # Vertical Bars (X = Categories, Y = Probability/Value)
-                bars = ax_prob.bar(plot_cons['Metric'], plot_cons['Value'], color='#2b5c8f', width=0.45, edgecolor='black', alpha=0.85)
+                # Vertical Bars: X = RI Threshold, Y = Probability (%)
+                bars = ax_prob.bar(plot_ri['Threshold'], plot_ri['Probability'], color='#2b5c8f', width=0.45, edgecolor='black', alpha=0.85)
                 
-                # Explicit Axes Labels
+                # Axes Configuration
                 ax_prob.set_ylabel("Probability (%)", fontweight='bold', fontsize=11)
-                ax_prob.set_xlabel("Threshold / Metric Category", fontweight='bold', fontsize=11)
-                ax_prob.set_title("RIPS Probabilities & Consensus Metrics", fontsize=12, fontweight='bold', pad=12)
+                ax_prob.set_xlabel("Rapid Intensification (RI) Threshold", fontweight='bold', fontsize=11)
+                ax_prob.set_title("Rapid Intensification (RI) Probabilities", fontsize=12, fontweight='bold', pad=12)
                 
-                # Y-Axis Range set to 0–110%
+                # Y-Axis limit locked to 0-100% (with padding for text labels)
                 ax_prob.set_ylim(0, 110)
                 ax_prob.grid(True, axis='y', linestyle=':', alpha=0.6)
                 ax_prob.tick_params(axis='x', rotation=15, labelsize=9)
                 
-                # Annotate exact percentage above each vertical bar
+                # Annotate exact percentage above each bar
                 for bar in bars:
                     yval = bar.get_height()
                     ax_prob.text(bar.get_x() + bar.get_width()/2.0, yval + 2.0, 
                                  f"{int(round(yval))}%", ha='center', va='bottom', fontweight='bold', fontsize=9)
             else:
-                ax_prob.text(0.5, 0.5, "No Data Parsed From Product Text", ha='center', va='center', fontsize=12, fontweight='bold')
+                ax_prob.text(0.5, 0.5, "RI Probability Data Not Found in Product Text", ha='center', va='center', fontsize=12, fontweight='bold')
 
             # RIGHT SIDE: Environmental Predictors Grid
             for i, pred in enumerate(predictors[:6]):
@@ -224,7 +234,7 @@
                 filename = "RIPS.txt"
 
                 try:
-                    resp_txt = await pyfetch(f"RIPS.txt{cache_buster}")
+                    resp_txt = await pyfetch(f"data/latest_ripa.txt{cache_buster}")
                     if resp_txt.ok:
                         raw_text = await resp_txt.string()
                     
@@ -238,8 +248,8 @@
                     set_status("Error: 'data/latest_ripa.txt' not found or empty. Please run update_ripa.sh to sync.")
                     return
 
-                df_cons, df_cond = parse_rips_consensus_robust(raw_text)
-                fig = build_ripa_side_by_side_fig(df_cons, df_cond, title_filename=filename)
+                df_ri, df_cond = parse_rips_data(raw_text)
+                fig = build_ripa_side_by_side_fig(df_ri, df_cond, title_filename=filename)
 
                 set_status(f"Successfully rendered latest product: {filename}")
                 display(fig, target="plot-container")
