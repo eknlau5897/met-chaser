@@ -211,7 +211,7 @@
                 set_status("Loading live product data from repository...")
                 
                 # Fetch target file relative to repository
-                resp_txt = await pyfetch("./data/latest_ripa.txt")
+                resp_txt = await pyfetch("RIPS.txt")
                 if not resp_txt.ok:
                     raise Exception("Product file not found in repository data/ folder.")
                 raw_text = await resp_txt.string()
