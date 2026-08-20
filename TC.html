@@ -37,6 +37,36 @@
             padding-bottom: 6px;
         }
 
+        .select-group {
+            margin-bottom: 12px;
+        }
+
+        .select-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            color: #94a3b8;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .system-select {
+            width: 100%;
+            background: rgba(30, 41, 59, 0.9);
+            color: #38bdf8;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .system-select:focus {
+            border-color: #38bdf8;
+        }
+
         .info-row {
             font-size: 12px;
             color: #cbd5e1;
@@ -103,6 +133,15 @@
 
 <div id="info-panel">
     <div class="title" id="storm-title">🌀 TROPICAL SYSTEM TRACK</div>
+
+    <!-- System Selection Dropdown -->
+    <div class="select-group">
+        <label for="system-dropdown">Select Active System:</label>
+        <select id="system-dropdown" class="system-select" onchange="switchSystem(this.value)">
+            <!-- Options populated dynamically from JavaScript -->
+        </select>
+    </div>
+
     <div class="info-row"><span>Basin:</span><b style="color:#38bdf8;">North West Pacific</b></div>
     <div class="info-row"><span>Observed Waypoints:</span><b id="obs-count" style="color:#10b981;">0</b></div>
     <div class="info-row"><span>Forecast Waypoints:</span><b id="fcst-count" style="color:#38bdf8;">0</b></div>
@@ -127,36 +166,65 @@
         <div class="legend-item"><span class="legend-color-box" style="background: #ff6060;"></span>Category 5 (≥ 137 kt)</div>
     </div>
 
-    <!-- Diagnostic Page Link Button -->
-    <a href="RIPS.html" target="_blank" class="diag-link-btn">📊 Open Diagnostics Page ↗</a>
+    <!-- Dynamic Diagnostic Page Link Button -->
+    <a id="diag-btn" href="RIPS.html" target="_blank" class="diag-link-btn">📊 Open Diagnostics Page ↗</a>
 </div>
 
 <div id="map"></div>
 
 <script>
     // =========================================================================
-    // EDIT YOUR FIXED OBSERVED & FORECAST DATA HERE IN THE CODE
+    // SYSTEM & DIAGNOSTIC DATA STORE
     // =========================================================================
-    const stormName = "95W";
+    const systemsData = {
+        "95W": {
+            name: "95W",
+            diagUrl: "RIPS.html",
+            observed: [
+                { time: "2026-08-18 18Z", lat: 19.2, lon: 115.0, wind: 20, mslp: 1000, type: "MD" },
+                { time: "2026-08-19 00Z", lat: 19.5, lon: 114.5, wind: 25, mslp: 998, type: "MD" },
+                { time: "2026-08-19 06Z", lat: 19.6, lon: 114, wind: 25, mslp: 998, type: "MD" },
+                { time: "2026-08-19 12Z", lat: 19.6, lon: 113.4, wind: 25, mslp: 998, type: "MD" },
+                { time: "2026-08-19 18Z", lat: 19.6, lon: 111.9, wind: 25, mslp: 998, type: "MD" },
+                { time: "2026-08-20 00Z", lat: 19.7, lon: 110.6, wind: 25, mslp: 998, type: "TD" },
+                { time: "2026-08-20 06Z", lat: 19.7, lon: 109.7, wind: 25, mslp: 998, type: "TD" },
+                { time: "2026-08-20 12Z", lat: 19.7, lon: 109, wind: 25, mslp: 998, type: "TD" },
+            ],
+            forecast: [
+                { hour: 0,  lat: 19.7, lon: 109, wind: 25, mslp: 998, type: "TD" },
+                { hour: 12, lat: 19.7, lon: 108.9, wind: 30, mslp: 995,  type: "TD" },
+                { hour: 24, lat: 20, lon: 108.6, wind: 30, mslp: 995,  type: "TD" },
+                { hour: 36, lat: 20.3, lon: 108.4, wind: 35, mslp: 994,  type: "TS" },
+                { hour: 48, lat: 20.9, lon: 108.2, wind: 35, mslp: 994,  type: "TS" },
+                { hour: 60, lat: 20.5, lon: 107.9, wind: 35, mslp: 994,  type:"TS"},
+                { hour: 72, lat: 20.2, lon:108.2, wind:35,mslp:994, type:"TS"},
+                { hour: 96, lat: 20.2, lon:108.8, wind:40,mslp:992, type:"TS"},
+                { hour: 120, lat: 21.1, lon:109.5, wind:45,mslp:990, type:"TS"},
+            ]
+        },
+        "17W": {
+            name: "17W",
+            diagUrl: "#",
+            observed: [
+                { time:"2026-08-20 12Z", lat:12.8,lon:150.2, wind:40,mslp:996,type:"TS"}
+            ],
+            forecast:[]
+        }
+    };
 
-    const observedData = [
-        { time: "2026-08-18 18Z", lat: 19.2, lon: 115.0, wind: 20, mslp: 1000, type: "MD" },
-        { time: "2026-08-19 00Z", lat: 19.5, lon: 114.5, wind: 25, mslp: 998, type: "MD" },
-        { time: "2026-08-19 06Z", lat: 19.6, lon: 114, wind: 25, mslp: 998, type: "MD" },
-        { time: "2026-08-19 12Z", lat: 19.6, lon: 113.4, wind: 25, mslp: 998, type: "MD" },
-        { time: "2026-08-19 18Z", lat: 19.6, lon: 111.9, wind: 25, mslp: 998, type: "MD" },
-        { time: "2026-08-20 00Z", lat: 19.7, lon: 110.6, wind: 25, mslp: 998, type: "TD" },
-        { time: "2026-08-20 06Z", lat: 19.7, lon: 109.7, wind: 25, mslp: 998, type: "TD" },
-        { time: "2026-08-20 12Z", lat: 19.7, lon: 109, wind: 25, mslp: 998, type: "TD" },
-    ];
+    // Global layer group for easy cleanup on switch
+    let currentMapLayers = L.layerGroup();
 
-    const forecastData = [
-        { hour: 0,  lat: 19.7, lon: 109, wind: 25, mslp: 998, type: "TD" },
-        { hour: 12, lat: 19.7, lon: 108.9, wind: 30, mslp: 995,  type: "TD" },
-        { hour: 24, lat: 20, lon: 108.6, wind: 30, mslp: 995,  type: "TD" },
-        { hour: 36, lat: 20.3, lon: 108.4, wind: 35, mslp: 994,  type: "TS" },
-        { hour: 48, lat: 20.9, lon: 108.2, wind: 35, mslp: 994,  type: "TS" },
-    ];
+    // Initialize Map
+    const map = L.map('map', { zoomControl: false }).setView([19.7, 109.0], 6);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 18,
+        attribution: 'CartoDB'
+    }).addTo(map);
+
+    L.control.zoom({ position: 'topright' }).addTo(map);
+    currentMapLayers.addTo(map);
 
     function getSshwsDetails(wind) {
         if (wind >= 137) return { color: "#ff6060", cat: "Category 5 Major Hurricane" };
@@ -168,82 +236,104 @@
         return { color: "#5ebaff", cat: "Tropical Depression / Depression" };
     }
 
-    // Update panel details
-    document.getElementById('storm-title').innerText = "🌀 " + stormName;
-    document.getElementById('obs-count').innerText = observedData.length;
-    document.getElementById('fcst-count').innerText = forecastData.length;
+    // Populate Dropdown
+    function populateDropdown() {
+        const select = document.getElementById('system-dropdown');
+        select.innerHTML = '';
+        Object.keys(systemsData).forEach(key => {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = systemsData[key].name;
+            select.appendChild(option);
+        });
+    }
 
-    const allMslp = [...observedData.map(p => p.mslp), ...forecastData.map(p => p.mslp)];
-    const minMslp = Math.min(...allMslp);
-    document.getElementById('min-mslp').innerText = minMslp.toFixed(1) + " hPa";
+    // Render Track & Update Panel UI
+    function switchSystem(systemKey) {
+        const system = systemsData[systemKey];
+        if (!system) return;
 
-    // Center map on current position
-    const currentPos = observedData[observedData.length - 1];
-    const map = L.map('map', { zoomControl: false }).setView([currentPos.lat, currentPos.lon], 6);
+        // 1. Clear previous layers
+        currentMapLayers.clearLayers();
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 18,
-        attribution: 'CartoDB'
-    }).addTo(map);
+        // 2. Update Info Panel Text & Buttons
+        document.getElementById('storm-title').innerText = "🌀 " + system.name;
+        document.getElementById('obs-count').innerText = system.observed.length;
+        document.getElementById('fcst-count').innerText = system.forecast.length;
 
-    L.control.zoom({ position: 'topright' }).addTo(map);
+        const allMslp = [...system.observed.map(p => p.mslp), ...system.forecast.map(p => p.mslp)];
+        const minMslp = Math.min(...allMslp);
+        document.getElementById('min-mslp').innerText = minMslp.toFixed(1) + " hPa";
 
-    // 1. PLOT OBSERVED TRACK
-    const obsCoords = observedData.map(p => [p.lat, p.lon]);
-    L.polyline(obsCoords, { color: '#10b981', weight: 4, opacity: 0.9 }).addTo(map);
+        const diagBtn = document.getElementById('diag-btn');
+        diagBtn.href = system.diagUrl;
+        diagBtn.innerText = `📊 Open ${systemKey} Diagnostics ↗`;
 
-    observedData.forEach((point, index) => {
-        const isCurrent = index === observedData.length - 1;
-        const sshws = getSshwsDetails(point.wind);
+        // 3. Render Observed Track
+        const obsCoords = system.observed.map(p => [p.lat, p.lon]);
+        L.polyline(obsCoords, { color: '#10b981', weight: 4, opacity: 0.9 }).addTo(currentMapLayers);
 
-        const marker = L.circleMarker([point.lat, point.lon], {
-            radius: isCurrent ? 8 : 5,
-            fillColor: sshws.color,
-            color: isCurrent ? '#ffffff' : '#000000',
-            weight: isCurrent ? 2 : 1,
-            fillOpacity: 1
-        }).addTo(map);
+        system.observed.forEach((point, index) => {
+            const isCurrent = index === system.observed.length - 1;
+            const sshws = getSshwsDetails(point.wind);
 
-        marker.bindPopup(`
-            <div style="font-size:12px; font-family:sans-serif;">
-                <b style="color:#10b981;">OBSERVED DATA</b><br>
-                <b>${stormName}</b><br>
-                Time: <b>${point.time}</b><br>
-                Category: <b style="color:${sshws.color};">${sshws.cat}</b><br>
-                Wind Speed: <b>${point.wind} kt</b><br>
-                Position: <b>${point.lat.toFixed(1)}°N, ${point.lon.toFixed(1)}°E</b><br>
-                MSLP: <b>${point.mslp.toFixed(1)} hPa</b>
-            </div>
-        `);
-    });
+            const marker = L.circleMarker([point.lat, point.lon], {
+                radius: isCurrent ? 8 : 5,
+                fillColor: sshws.color,
+                color: isCurrent ? '#ffffff' : '#000000',
+                weight: isCurrent ? 2 : 1,
+                fillOpacity: 1
+            }).addTo(currentMapLayers);
 
-    // 2. PLOT FORECAST TRACK
-    const fcstCoords = forecastData.map(p => [p.lat, p.lon]);
-    L.polyline(fcstCoords, { color: '#38bdf8', weight: 3, dashArray: '6, 6', opacity: 0.85 }).addTo(map);
+            marker.bindPopup(`
+                <div style="font-size:12px; font-family:sans-serif;">
+                    <b style="color:#10b981;">OBSERVED DATA</b><br>
+                    <b>${system.name}</b><br>
+                    Time: <b>${point.time}</b><br>
+                    Category: <b style="color:${sshws.color};">${sshws.cat}</b><br>
+                    Wind Speed: <b>${point.wind} kt</b><br>
+                    Position: <b>${point.lat.toFixed(1)}°N, ${point.lon.toFixed(1)}°E</b><br>
+                    MSLP: <b>${point.mslp.toFixed(1)} hPa</b>
+                </div>
+            `);
+        });
 
-    forecastData.slice(1).forEach((point) => {
-        const sshws = getSshwsDetails(point.wind);
+        // 4. Render Forecast Track
+        const fcstCoords = system.forecast.map(p => [p.lat, p.lon]);
+        L.polyline(fcstCoords, { color: '#38bdf8', weight: 3, dashArray: '6, 6', opacity: 0.85 }).addTo(currentMapLayers);
 
-        const marker = L.circleMarker([point.lat, point.lon], {
-            radius: 5,
-            fillColor: sshws.color,
-            color: '#000000',
-            weight: 1,
-            fillOpacity: 0.9
-        }).addTo(map);
+        system.forecast.slice(1).forEach((point) => {
+            const sshws = getSshwsDetails(point.wind);
 
-        marker.bindPopup(`
-            <div style="font-size:12px; font-family:sans-serif;">
-                <b style="color:#38bdf8;">FORECAST DATA</b><br>
-                <b>${stormName}</b><br>
-                Lead Time: <b>+${point.hour}h</b><br>
-                Category: <b style="color:${sshws.color};">${sshws.cat}</b><br>
-                Wind Speed: <b>${point.wind} kt</b><br>
-                Position: <b>${point.lat.toFixed(1)}°N, ${point.lon.toFixed(1)}°E</b><br>
-                MSLP: <b>${point.mslp.toFixed(1)} hPa</b>
-            </div>
-        `);
-    });
+            const marker = L.circleMarker([point.lat, point.lon], {
+                radius: 5,
+                fillColor: sshws.color,
+                color: '#000000',
+                weight: 1,
+                fillOpacity: 0.9
+            }).addTo(currentMapLayers);
+
+            marker.bindPopup(`
+                <div style="font-size:12px; font-family:sans-serif;">
+                    <b style="color:#38bdf8;">FORECAST DATA</b><br>
+                    <b>${system.name}</b><br>
+                    Lead Time: <b>+${point.hour}h</b><br>
+                    Category: <b style="color:${sshws.color};">${sshws.cat}</b><br>
+                    Wind Speed: <b>${point.wind} kt</b><br>
+                    Position: <b>${point.lat.toFixed(1)}°N, ${point.lon.toFixed(1)}°E</b><br>
+                    MSLP: <b>${point.mslp.toFixed(1)} hPa</b>
+                </div>
+            `);
+        });
+
+        // 5. Recenter Map on Latest Observed Location
+        const currentPos = system.observed[system.observed.length - 1];
+        map.setView([currentPos.lat, currentPos.lon], 6);
+    }
+
+    // Initial load execution
+    populateDropdown();
+    switchSystem("95W");
 </script>
 
 </body>
