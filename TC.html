@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Observed & Forecast Track Map</title>
 
+    <!-- Leaflet JS & CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -97,11 +98,12 @@
             display: inline-block;
         }
 
-        .legend-line {
-            width: 24px;
-            height: 3px;
-            margin-right: 8px;
-            border-radius: 2px;
+        .intensity-card {
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(56, 189, 248, 0.2);
         }
 
         .diag-link-btn {
@@ -133,28 +135,29 @@
 <div id="info-panel">
     <div class="title" id="storm-title">🌀 TROPICAL SYSTEM TRACK</div>
 
+    <!-- System Selection Dropdown -->
     <div class="select-group">
         <label for="system-dropdown">Select Active System:</label>
         <select id="system-dropdown" class="system-select" onchange="switchSystem(this.value)">
-            </select>
+            <!-- Options populated dynamically from JavaScript -->
+        </select>
     </div>
 
-    <div class="info-row"><span>Basin:</span><b style="color:#38bdf8;">North West Pacific</b></div>
-    <div class="info-row"><span>Current Intensity:</span><b id="current-intensity" style="color:#38bdf8;">-</b></div>
-    <div class="info-row"><span>Observed Waypoints:</span><b id="obs-count" style="color:#10b981;">0</b></div>
-    <div class="info-row"><span>Forecast Waypoints:</span><b id="fcst-count" style="color:#38bdf8;">0</b></div>
-    <div class="info-row"><span>Min Central Pressure:</span><b id="min-mslp" style="color:#ef4444;">-</b></div>
-
     <div class="legend">
-        <div class="legend-item">
-            <div class="legend-line" style="background: #10b981;"></div>
-            <span>Observed Track (Solid)</span>
+        <!-- Live Current Intensity Display -->
+        <div class="intensity-card">
+            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px;">
+                ⚡ Live Current Intensity
+            </div>
+            <div class="info-row"><span>Basin:</span><b style="color:#38bdf8;">North West Pacific</b></div>
+            <div class="info-row"><span>Current Wind:</span><b id="curr-wind" style="color:#38bdf8;">-</b></div>
+            <div class="info-row"><span>Current MSLP:</span><b id="curr-mslp" style="color:#ef4444;">-</b></div>
+            <div class="info-row"><span>Classification:</span><b id="curr-cat" style="color:#38bdf8;">-</b></div>
         </div>
-        <div class="legend-item">
-            <div class="legend-line" style="border-top: 3px dashed #38bdf8;"></div>
-            <span>Forecast Track (Dashed)</span>
+
+        <div style="margin-top: 8px; font-weight: 600; color: #cbd5e1; font-size: 11px; margin-bottom: 6px;">
+            SSHWS Intensity Scale:
         </div>
-        <div style="margin-top: 8px; font-weight: 600; color: #cbd5e1; font-size: 11px;">SSHWS Intensity Colors:</div>
         <div class="legend-item"><span class="legend-color-box" style="background: grey;"></span>TD / MD (< 34 kt)</div>
         <div class="legend-item"><span class="legend-color-box" style="background: green;"></span>Tropical Storm (34–46 kt)</div>
         <div class="legend-item"><span class="legend-color-box" style="background: blue;"></span>Severe Tropical Storm (47–63 kt)</div>
@@ -165,6 +168,7 @@
         <div class="legend-item"><span class="legend-color-box" style="background: purple;"></span>Category 5 (≥ 137 kt)</div>
     </div>
 
+    <!-- Dynamic Diagnostic Page Link Button -->
     <a id="diag-btn" href="RIPS.html" target="_blank" class="diag-link-btn">📊 Open Diagnostics Page ↗</a>
 </div>
 
@@ -240,9 +244,8 @@
         return { color: "grey", cat: "Tropical Depression" };
     }
 
-    // Distance calculation helper (Haversine formula in Nautical Miles)
     function calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 3440.065; // Radius of Earth in nautical miles
+        const R = 3440.065;
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
         const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -269,26 +272,24 @@
 
         currentMapLayers.clearLayers();
 
-        // Latest observed point data
+        // Get Current Active Observed Point
         const latestObserved = system.observed[system.observed.length - 1];
         const latestSshws = getSshwsDetails(latestObserved.wind);
 
-        // Update Legend / Info Panel metrics
+        // Update Info Panel Title & Link Button
         document.getElementById('storm-title').innerText = "🌀 SYSTEM " + system.name;
-        document.getElementById('obs-count').innerText = system.observed.length;
-        document.getElementById('fcst-count').innerText = system.forecast.length;
         
-        const currentIntensityElem = document.getElementById('current-intensity');
-        currentIntensityElem.innerText = `${latestObserved.wind} kt (${latestObserved.type})`;
-        currentIntensityElem.style.color = latestSshws.color === "grey" ? "#cbd5e1" : latestSshws.color;
-
-        const allMslp = [...system.observed.map(p => p.mslp), ...system.forecast.map(p => p.mslp)];
-        const minMslp = Math.min(...allMslp);
-        document.getElementById('min-mslp').innerText = minMslp.toFixed(1) + " hPa";
-
         const diagBtn = document.getElementById('diag-btn');
         diagBtn.href = system.diagUrl;
         diagBtn.innerText = `📊 Open ${systemKey} Diagnostics ↗`;
+
+        // Update Legend Intensity Card Display
+        document.getElementById('curr-wind').innerText = `${latestObserved.wind} kt`;
+        document.getElementById('curr-mslp').innerText = `${latestObserved.mslp.toFixed(1)} hPa`;
+        
+        const currCatElem = document.getElementById('curr-cat');
+        currCatElem.innerText = `${latestObserved.type} - ${latestSshws.cat}`;
+        currCatElem.style.color = latestSshws.color === "grey" ? "#cbd5e1" : latestSshws.color;
 
         // Render Observed Track Polyline
         const obsCoords = system.observed.map(p => [p.lat, p.lon]);
@@ -300,7 +301,7 @@
             const sshws = getSshwsDetails(point.wind);
             const prevPoint = index > 0 ? system.observed[index - 1] : null;
             const distMoved = prevPoint ? calculateDistance(prevPoint.lat, prevPoint.lon, point.lat, point.lon) + " nm" : "N/A";
-            const gustEst = Math.round(point.wind * 1.25); // Estimated 1-min gust factor
+            const gustEst = Math.round(point.wind * 1.25);
 
             const marker = L.circleMarker([point.lat, point.lon], {
                 radius: isCurrent ? 8 : 5,
@@ -310,19 +311,19 @@
                 fillOpacity: 1
             }).addTo(currentMapLayers);
 
-            // Dynamic Click Popup Label
+            // Observed Popup retaining Central Pressure (MSLP)
             marker.bindPopup(`
                 <div style="font-size:12px; font-family:sans-serif; min-width:180px;">
                     <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
-                        <b style="color:#10b981;">OBSERVED WAYPOINT</b> ${isCurrent ? '<span style="background:#10b981; color:#fff; padding:1px 4px; border-radius:3px; font-size:9px;">LATEST</span>' : ''}<br>
+                        <b style="color:#10b981;">OBSERVED POINT</b> ${isCurrent ? '<span style="background:#10b981; color:#fff; padding:1px 4px; border-radius:3px; font-size:9px;">LATEST</span>' : ''}<br>
                         <b style="font-size:13px;">${system.name}</b>
                     </div>
                     Time: <b>${point.time}</b><br>
                     Status: <b style="color:${sshws.color};">${sshws.cat} (${point.type})</b><br>
-                    Max Winds: <b>${point.wind} kt</b> (Gusts ~${gustEst} kt)<br>
-                    Min MSLP: <b>${point.mslp.toFixed(1)} hPa</b><br>
+                    Wind Speed: <b>${point.wind} kt</b> (Gusts ~${gustEst} kt)<br>
+                    Central Pressure (MSLP): <b>${point.mslp.toFixed(1)} hPa</b><br>
                     Position: <b>${point.lat.toFixed(1)}°N, ${point.lon.toFixed(1)}°E</b><br>
-                    Dist. Movement: <b>${distMoved}</b>
+                    Dist. Moved: <b>${distMoved}</b>
                 </div>
             `);
         });
@@ -346,16 +347,16 @@
                 fillOpacity: 0.9
             }).addTo(currentMapLayers);
 
-            // Dynamic Click Popup Label
+            // Forecast Popup retaining Central Pressure (MSLP)
             marker.bindPopup(`
                 <div style="font-size:12px; font-family:sans-serif; min-width:180px;">
                     <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
-                        <b style="color:#38bdf8;">FORECAST WAYPOINT</b><br>
+                        <b style="color:#38bdf8;">FORECAST POINT</b><br>
                         <b style="font-size:13px;">${system.name} (+${point.hour}h)</b>
                     </div>
                     Category: <b style="color:${sshws.color};">${sshws.cat} (${point.type})</b><br>
-                    Fcst Winds: <b>${point.wind} kt</b> (Gusts ~${gustEst} kt)<br>
-                    Fcst MSLP: <b>${point.mslp.toFixed(1)} hPa</b><br>
+                    Fcst Wind: <b>${point.wind} kt</b> (Gusts ~${gustEst} kt)<br>
+                    Fcst Pressure (MSLP): <b>${point.mslp.toFixed(1)} hPa</b><br>
                     Position: <b>${point.lat.toFixed(1)}°N, ${point.lon.toFixed(1)}°E</b><br>
                     Leg Distance: <b>${distMoved}</b>
                 </div>
