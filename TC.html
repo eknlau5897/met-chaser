@@ -177,8 +177,8 @@
     // SYSTEM & DIAGNOSTIC DATA STORE
     // =========================================================================
     const systemsData = {
-        "95W": {
-            name: "95W",
+        "18W": {
+            name: "18W",
             diagUrl: "RIPS.html",
             observed: [
                 { time: "2026-08-18 18Z", lat: 19.2, lon: 115.0, wind: 20, mslp: 1000, type: "MD" },
@@ -200,19 +200,27 @@
                 { hour: 60, lat: 20.5, lon: 108.3, wind: 45, mslp: 990,  type:"TS"},
                 { hour: 72, lat: 20.7, lon:108.5, wind:50,mslp:988, type:"TS"},
                 { hour: 96, lat: 21, lon:108.9, wind:50,mslp:988, type:"TS"},
-                { hour: 120, lat: 21.3, lon:109.6, wind:40,mslp:995, type:"TS"},
+                { hour: 120, lat: 21.3, lon:109.6, wind:40,mslp:995, type:"TS"}
             ]
         },
         "17W": {
             name: "17W",
             diagUrl: "#",
             observed: [
-                { time:"2026-08-20 12Z", lat:12.8,lon:150.2, wind:40,mslp:996,type:"TS"}
+                { time:"2026-08-20 12Z", lat:12.8,lon:150.2, wind:40,mslp:996,type:"TS"},
+                { time:"2026-08-20 18Z", lat:13.7,lon:149.7, wind:50,mslp:988,type:"STS"},
+                { time:"2026-08-21 00Z", lat:14.2,lon:149.3, wind:55,mslp:985,type:"STS"}
             ],
-            forecast:[]
+            forecast:[
+                { hour: 0,  lat: 14.2, lon: 149.3, wind: 55, mslp: 985, type: "STS" },
+                { hour: 24, lat: 17.3, lon: 147.1, wind: 75, mslp: 968,  type: "TD" },
+                { hour: 48, lat: 20.2, lon: 144, wind: 115, mslp: 935,  type: "C4" },
+                { hour: 72, lat: 22.9, lon:138.3, wind:125,mslp:925, type:"C4"},
+                { hour: 96, lat: 24.9, lon:133.3, wind:105,mslp:940, type:"TS"},
+                { hour: 120, lat: 26.5, lon:130.3, wind:75,mslp:965, type:"TS"}
+        ]
         }
-    };
-
+    }
     // Global layer group for easy cleanup on switch
     let currentMapLayers = L.layerGroup();
 
@@ -228,14 +236,14 @@
     currentMapLayers.addTo(map);
 
     function getSshwsDetails(wind) {
-        if (wind >= 137) return { color: "#ff6060", cat: "Category 5 Major Hurricane" };
-        if (wind >= 113) return { color: "#ff8f20", cat: "Category 4 Major Hurricane" };
-        if (wind >= 96)  return { color: "#ffc140", cat: "Category 3 Major Hurricane" };
-        if (wind >= 83)  return { color: "#ffe775", cat: "Category 2 Hurricane" };
-        if (wind >= 64)  return { color: "#ffffcc", cat: "Category 1 Hurricane" };
-        if (wind >= 47)  return { color: "#00fafc", cat: "Severe Tropical Storm" };
-        if (wind >= 34)  return { color: "#00fafc", cat: "Tropical Storm" };
-        return { color: "#5ebaff", cat: "Tropical Depression / Depression" };
+        if (wind >= 137) return { color: "purple", cat: "Category 5 Major Hurricane" };
+        if (wind >= 113) return { color: "magenta", cat: "Category 4 Major Hurricane" };
+        if (wind >= 96)  return { color: "red", cat: "Category 3 Major Hurricane" };
+        if (wind >= 83)  return { color: "orange", cat: "Category 2 Hurricane" };
+        if (wind >= 64)  return { color: "yellow", cat: "Category 1 Hurricane" };
+        if (wind >= 47)  return { color: "blue", cat: "Severe Tropical Storm" };
+        if (wind >= 34)  return { color: "green", cat: "Tropical Storm" };
+        return { color: "grey", cat: "Tropical Depression / Depression" };
     }
 
     // Populate Dropdown
@@ -335,7 +343,7 @@
 
     // Initial load execution
     populateDropdown();
-    switchSystem("95W");
+    switchSystem("18W");
 </script>
 
 </body>
