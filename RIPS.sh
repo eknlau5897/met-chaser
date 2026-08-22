@@ -26,7 +26,7 @@ while true; do
         echo "[$(date -u)] Directory index restricted. Calculating expected 6-hourly cycle URL..."
         # Calculate latest synoptic hour (00, 06, 12, 18 UTC)
         CURRENT_HOUR=$(($CURRENT_HOUR - 6))
-        SYNOP_HOUR=$(printf "%02d" $(( (10#$CURRENT_HOUR / 6) * 6 )))
+        SYNOP_HOUR=$(printf "%02d" $(( ($CURRENT_HOUR / 6) * 6 )))
         DATE_STAMP=$(date -u +"%Y%m%d")${SYNOP_HOUR}00
         LATEST_FILE="${STORM_ID}_ripastbl_${DATE_STAMP}.txt"
     fi
