@@ -3,12 +3,25 @@
 # Configuration
 STORM_ID="2026wp18"
 DIR_URL="https://rammb-data.cira.colostate.edu/tc_realtime/products/storms/${STORM_ID}/ripastbl/"
-INTERVAL=21600 # Check every 6 hours (1800s or adjust to your preference)
+INTERVAL=21600 # Check every 6 hours
 
 TARGET_DATA_FILE="RIPS.txt"
 TARGET_NAME_FILE="data/latest_filename.txt"
 
 mkdir -p data
+
+# Function to calculate date string for 6 hours ago (handles both macOS and Linux)
+get_prior_date_parts() {
+    if date -v-6H >/dev/null 2>&1; then
+        # macOS / BSD Date Syntax
+        PREV_DATE=$(date -u -v-6H +"%Y%m%d")
+        PREV_HR=$(date -u -v-6H +"%H")
+    else
+        # Linux / GNU Date Syntax
+        PREV_DATE=$(date -u -d "6 hours ago" +"%Y%m%d")
+        PREV_HR=$(date -u -d "6 hours ago" +"%H")
+    fi
+}
 
 echo "Starting RAMMB RIPA auto-update daemon for ${STORM_ID} (6-hour prior mode)..."
 
@@ -24,11 +37,14 @@ while true; do
     # 3. Fallback: If directory listing fails, calculate the previous 6-hour cycle timestamp manually
     if [ -z "$LATEST_FILE" ]; then
         echo "[$(date -u)] Directory index restricted. Calculating expected 6-hourly prior cycle URL..."
-        # Subtract 6 hours from current UTC time to get the prior cycle slot
-        PREV_EPOCH=$(date -u -d "6 hours ago" +%s)
-        PREV_DATE=$(date -u -d "@$PREV_EPOCH" +"%Y%m%d")
-        PREV_HR=$(date -u -d "@$PREV_EPOCH" +"%H")
-        SYNOP_HOUR=$(printf "%02d" $(( (10#$PREV_HR / 6) * 6 )))
+        
+        get_prior_date_parts
+        
+        # Clean leading zeros safely for arithmetic calculations
+        HR_NUM=$((10#$PREV_HR))
+        SYNOP_NUM=$(( (HR_NUM / 6) * 6 ))
+        SYNOP_HOUR=$(printf "%02d" $SYNOP_NUM)
+        
         DATE_STAMP="${PREV_DATE}${SYNOP_HOUR}00"
         LATEST_FILE="${STORM_ID}_ripastbl_${DATE_STAMP}.txt"
     fi
