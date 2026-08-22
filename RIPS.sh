@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-STORM_ID="2026wp95"
+STORM_ID="2026wp18"
 DIR_URL="https://rammb-data.cira.colostate.edu/tc_realtime/products/storms/${STORM_ID}/ripastbl/"
 INTERVAL=21600 # Check every 30 minutes (1800s)
 
