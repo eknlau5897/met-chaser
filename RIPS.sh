@@ -55,24 +55,15 @@ while true; do
     # 4. Attempt to fetch product file
     HTTP_STATUS=$(curl -sL -A "Mozilla/5.0" -w "%{http_code}" "$FULL_URL" -o "data/temp_ripa.txt")
 
-    if [ "$HTTP_STATUS" -eq 200 ] && [ -s "data/temp_ripa.txt" ]; then
         # Overwrite destination file
-        mv "data/temp_ripa.txt" "$TARGET_DATA_FILE"
-        echo "$LATEST_FILE" > "$TARGET_NAME_FILE"
+    mv "data/temp_ripa.txt" "$TARGET_DATA_FILE"
+    echo "$LATEST_FILE" > "$TARGET_NAME_FILE"
 
         # 5. Git commit & push if updated
-        git add RIPS.txt
-        if ! git diff --staged --quiet; then
-            echo "[$(date -u)] New prior product synced (${LATEST_FILE}). Pushing to GitHub..."
-            git commit -m "Update prior RIPA product: ${LATEST_FILE}"
-            git push origin main
-        else
-            echo "[$(date -u)] No changes detected in prior product."
-        fi
-    else
-        rm -f "data/temp_ripa.txt"
-        echo "[$(date -u)] Failed to fetch ${LATEST_FILE} (HTTP ${HTTP_STATUS}). Retrying next cycle..."
-    fi
+    git add RIPS.txt
+    git commit -m "Auto-update: Fetched ${LATEST_FILE} for ${STORM_ID} (6-hour prior)"
+    git push origin main
+    echo "[$(date -u)] Successfully fetched and updated ${LATEST_FILE}."
 
     echo "Sleeping for $((INTERVAL / 60)) minutes..."
     echo "--------------------------------------------------------"
