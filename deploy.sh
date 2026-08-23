@@ -1,3 +1,4 @@
+cat << 'EOF' > deploy.sh
 #!/bin/bash
 
 for file in *.ipynb; do
@@ -12,7 +13,12 @@ import glob, os
 html_files = sorted(glob.glob("*.html"))
 links = [f for f in html_files if f != "index.html"]
 
-link_items = "\n".join([f"      <li><a href=\"{f}\">{f.replace(\".html\", \"\").replace(\"_\", \" \").title()}</a></li>" for f in links])
+items = []
+for f in links:
+    clean_title = f.replace(".html", "").replace("_", " ").title()
+    items.append(f"      <li><a href=\"{f}\">{clean_title}</a></li>")
+
+link_items = "\n".join(items)
 
 index_html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -49,3 +55,6 @@ with open("index.html", "w") as f:
 git add *.html
 git commit -m "Auto-deploy updated notebooks and gallery"
 git push origin main
+EOF
+
+chmod +x deploy.sh
