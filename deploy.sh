@@ -1,4 +1,3 @@
-cat << 'EOF' > deploy.sh
 #!/bin/bash
 
 for file in *.ipynb; do
@@ -50,6 +49,3 @@ with open("index.html", "w") as f:
 git add *.html
 git commit -m "Auto-deploy updated notebooks and gallery"
 git push origin main
-EOF
-
-chmod +x deploy.sh
