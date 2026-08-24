@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
 
-    <!-- Configure required standard WASM packages -->
+    <!-- Pre-load pure WASM/Python packages -->
     <script type="py" config='{
         "packages": ["matplotlib", "numpy", "xarray", "scipy"]
     }'></script>
@@ -75,7 +75,7 @@
     <div id="output"></div>
 
     <script type="js">
-        // Set default date input to today dynamically
+        // Automatically default input date to today's date
         document.getElementById("run_date").value = new Date().toISOString().split('T')[0];
     </script>
 
@@ -84,8 +84,7 @@ import io
 import urllib.parse
 from datetime import datetime, timedelta
 from pyscript import display
-from js import document, fetch
-import pyodide
+from js import document, fetch, Uint8Array
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
@@ -124,7 +123,7 @@ async def generate_cross_section(event):
         f"time={target_iso}&accept=netcdf"
     )
 
-    # Wrap request with a public CORS proxy to bypass GitHub Pages domain blocking
+    # CORS Proxy wrapper
     proxied_url = f"https://corsproxy.io/?url={urllib.parse.quote(target_ncss_url)}"
 
     try:
@@ -133,7 +132,10 @@ async def generate_cross_section(event):
             raise Exception(f"HTTP {response.status}: Failed to reach dataset (Data for run date '{raw_date}' may be expired or unavailable).")
 
         array_buffer = await response.arrayBuffer()
-        file_bytes = bytes(pyodide.ffi.to_memoryview(array_buffer))
+        
+        # Cross-version PyScript JS ArrayBuffer to Python bytes conversion
+        uint8_array = Uint8Array.new(array_buffer)
+        file_bytes = bytes(uint8_array.to_py())
 
         # Parse in-memory NetCDF binary using scipy backend
         byte_stream = io.BytesIO(file_bytes)
