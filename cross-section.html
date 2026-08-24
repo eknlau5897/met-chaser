@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
 
-    <!-- Pre-load pure WASM/Python packages -->
+    <!-- Configure pure WASM/Python packages -->
     <script type="py" config='{
         "packages": ["matplotlib", "numpy", "xarray", "scipy"]
     }'></script>
@@ -75,7 +75,7 @@
     <div id="output"></div>
 
     <script type="js">
-        // Automatically default input date to today's date
+        // Set default date input to today dynamically
         document.getElementById("run_date").value = new Date().toISOString().split('T')[0];
     </script>
 
@@ -91,7 +91,7 @@ import xarray as xr
 
 async def generate_cross_section(event):
     output_div = document.getElementById("output")
-    output_div.innerHTML = "<p style='color:#0066cc; font-weight:bold;'>Fetching GFS Data via CORS Proxy... Please wait.</p>"
+    output_div.innerHTML = "<p style='color:#0066cc; font-weight:bold;'>Fetching GFS Data via Proxy... Please wait.</p>"
 
     # 1. Parse Input Form Data
     raw_date = document.getElementById("run_date").value
@@ -114,7 +114,7 @@ async def generate_cross_section(event):
     valid_time = init_datetime + timedelta(hours=fhour)
     target_iso = valid_time.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # Target THREDDS NCSS subsetting URL
+    # 2. Target THREDDS NCSS subsetting URL
     target_ncss_url = (
         f"https://thredds.ucar.edu/thredds/ncss/grib/NCEP/GFS/Global_0p25deg/"
         f"GFS_Global_0p25deg_{run_date_str}_{init}.grib2?"
@@ -123,19 +123,26 @@ async def generate_cross_section(event):
         f"time={target_iso}&accept=netcdf"
     )
 
-    # CORS Proxy wrapper
-    proxied_url = f"https://corsproxy.io/?url={urllib.parse.quote(target_ncss_url)}"
+    proxy_url = f"https://api.allorigins.win/raw?url={urllib.parse.quote(target_ncss_url)}"
 
     try:
-        response = await fetch(proxied_url)
+        response = await fetch(proxy_url)
         if not response.ok:
-            raise Exception(f"HTTP {response.status}: Failed to reach dataset (Data for run date '{raw_date}' may be expired or unavailable).")
+            raise Exception(f"HTTP {response.status}: Failed to reach THREDDS server.")
 
         array_buffer = await response.arrayBuffer()
         
-        # Cross-version PyScript JS ArrayBuffer to Python bytes conversion
+        # Safe JS ArrayBuffer to Python bytes conversion
         uint8_array = Uint8Array.new(array_buffer)
         file_bytes = bytes(uint8_array.to_py())
+
+        # Validate NetCDF Magic Header Bytes (CDF\x01 or CDF\x02)
+        if not file_bytes.startswith(b'CDF'):
+            error_preview = file_bytes[:200].decode('utf-8', errors='ignore')
+            raise Exception(
+                f"Data for date '{raw_date}' is unavailable or expired on THREDDS.\n"
+                f"Server Response: {error_preview}"
+            )
 
         # Parse in-memory NetCDF binary using scipy backend
         byte_stream = io.BytesIO(file_bytes)
@@ -144,7 +151,7 @@ async def generate_cross_section(event):
         u_wind = ds['u-component_of_wind_isobaric'].squeeze()
         v_wind = ds['v-component_of_wind_isobaric'].squeeze()
 
-        # Interpolate coordinates along transect
+        # 3. Interpolate coordinates along transect
         num_pts = 100
         lats = np.linspace(start_lat, end_lat, num_pts)
         lons = np.linspace(start_lon, end_lon, num_pts)
@@ -169,7 +176,7 @@ async def generate_cross_section(event):
         n_wind = -u_knots * np.sin(tangent_angle) + v_knots * np.cos(tangent_angle)
         wind_speed = np.sqrt(u_knots**2 + v_knots**2)
 
-        # Matplotlib Visualization
+        # 4. Matplotlib Visualization
         fig, ax = plt.subplots(figsize=(14, 7))
 
         isobaric_levels = u_cross['isobaric']
