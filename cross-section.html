@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
 
-    <!-- Load pure WASM/Python packages -->
+    <!-- Configure required standard WASM packages -->
     <script type="py" config='{
         "packages": ["matplotlib", "numpy", "xarray", "scipy"]
     }'></script>
@@ -31,15 +31,14 @@
 
         <div class="form-grid">
             <div class="form-group">
-                <label for="run_date">Run Date (Must be within last 7 days)</label>
-                <!-- Updated default to a recent active date placeholder -->
-                <input type="date" id="run_date" value="2026-08-20">
+                <label for="run_date">Run Date (Within last 7 days)</label>
+                <input type="date" id="run_date">
             </div>
             <div class="form-group">
                 <label for="init_hour">Model Run (UTC)</label>
                 <select id="init_hour">
-                    <option value="0000" selected>00Z</option>
-                    <option value="0600">06Z</option>
+                    <option value="0000">00Z</option>
+                    <option value="0600" selected>06Z</option>
                     <option value="1200">12Z</option>
                     <option value="1800">18Z</option>
                 </select>
@@ -75,8 +74,14 @@
 
     <div id="output"></div>
 
+    <script type="js">
+        // Set default date input to today dynamically
+        document.getElementById("run_date").value = new Date().toISOString().split('T')[0];
+    </script>
+
     <script type="py">
 import io
+import urllib.parse
 from datetime import datetime, timedelta
 from pyscript import display
 from js import document, fetch
@@ -87,8 +92,9 @@ import xarray as xr
 
 async def generate_cross_section(event):
     output_div = document.getElementById("output")
-    output_div.innerHTML = "<p style='color:#0066cc; font-weight:bold;'>Fetching GFS Data via THREDDS... Please wait.</p>"
+    output_div.innerHTML = "<p style='color:#0066cc; font-weight:bold;'>Fetching GFS Data via CORS Proxy... Please wait.</p>"
 
+    # 1. Parse Input Form Data
     raw_date = document.getElementById("run_date").value
     run_date_str = raw_date.replace("-", "")
     init = document.getElementById("init_hour").value
@@ -109,7 +115,8 @@ async def generate_cross_section(event):
     valid_time = init_datetime + timedelta(hours=fhour)
     target_iso = valid_time.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    ncss_url = (
+    # Target THREDDS NCSS subsetting URL
+    target_ncss_url = (
         f"https://thredds.ucar.edu/thredds/ncss/grib/NCEP/GFS/Global_0p25deg/"
         f"GFS_Global_0p25deg_{run_date_str}_{init}.grib2?"
         f"var=u-component_of_wind_isobaric&var=v-component_of_wind_isobaric&"
@@ -117,20 +124,25 @@ async def generate_cross_section(event):
         f"time={target_iso}&accept=netcdf"
     )
 
+    # Wrap request with a public CORS proxy to bypass GitHub Pages domain blocking
+    proxied_url = f"https://corsproxy.io/?url={urllib.parse.quote(target_ncss_url)}"
+
     try:
-        response = await fetch(ncss_url)
+        response = await fetch(proxied_url)
         if not response.ok:
-            raise Exception(f"HTTP Error {response.status}: GFS data for run date '{raw_date}' is expired or unavailable on THREDDS.")
+            raise Exception(f"HTTP {response.status}: Failed to reach dataset (Data for run date '{raw_date}' may be expired or unavailable).")
 
         array_buffer = await response.arrayBuffer()
         file_bytes = bytes(pyodide.ffi.to_memoryview(array_buffer))
 
+        # Parse in-memory NetCDF binary using scipy backend
         byte_stream = io.BytesIO(file_bytes)
         ds = xr.open_dataset(byte_stream, engine="scipy")
 
         u_wind = ds['u-component_of_wind_isobaric'].squeeze()
         v_wind = ds['v-component_of_wind_isobaric'].squeeze()
 
+        # Interpolate coordinates along transect
         num_pts = 100
         lats = np.linspace(start_lat, end_lat, num_pts)
         lons = np.linspace(start_lon, end_lon, num_pts)
@@ -155,6 +167,7 @@ async def generate_cross_section(event):
         n_wind = -u_knots * np.sin(tangent_angle) + v_knots * np.cos(tangent_angle)
         wind_speed = np.sqrt(u_knots**2 + v_knots**2)
 
+        # Matplotlib Visualization
         fig, ax = plt.subplots(figsize=(14, 7))
 
         isobaric_levels = u_cross['isobaric']
@@ -186,7 +199,7 @@ async def generate_cross_section(event):
         plt.close(fig)
 
     except Exception as e:
-        output_div.innerHTML = f"<p style='color:red; font-weight:bold;'>Error: {str(e)}</p>"
+        output_div.innerHTML = f"<p style='color:red; font-weight:bold;'>Execution Error: {str(e)}</p>"
     </script>
 </body>
 </html>
