@@ -7,9 +7,9 @@
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
 
-    <!-- Configure required standard packages in valid JSON format -->
+    <!-- Load pure WASM/Python packages -->
     <script type="py" config='{
-        "packages": ["matplotlib", "numpy", "xarray"]
+        "packages": ["matplotlib", "numpy", "xarray", "scipy"]
     }'></script>
 
     <style>
@@ -74,20 +74,21 @@
 
     <div id="output"></div>
 
-    <!-- Pure Python Script using PyScript -->
     <script type="py">
+import io
 from datetime import datetime, timedelta
 from pyscript import display
 from js import document
+from pyodide.http import open_url
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
 async def generate_cross_section(event):
     output_div = document.getElementById("output")
-    output_div.innerHTML = "<p style='color:#0066cc; font-weight:bold;'>Fetching GFS Dataset & Processing Cross-Section... Please wait.</p>"
+    output_div.innerHTML = "<p style='color:#0066cc; font-weight:bold;'>Fetching GFS Data via THREDDS... Please wait.</p>"
 
-    # 1. Get input values
+    # 1. Read Inputs
     raw_date = document.getElementById("run_date").value
     run_date_str = raw_date.replace("-", "")
     init = document.getElementById("init_hour").value
@@ -101,52 +102,72 @@ async def generate_cross_section(event):
     start = (start_lat, start_lon)
     end = (end_lat, end_lon)
 
+    lat_min, lat_max = min(start_lat, end_lat) - 2.0, max(start_lat, end_lat) + 2.0
+    lon_min, lon_max = min(start_lon, end_lon) - 2.0, max(start_lon, end_lon) + 2.0
+
     init_datetime = datetime.strptime(f"{run_date_str}{init[:2]}", "%Y%m%d%H")
     valid_time = init_datetime + timedelta(hours=fhour)
+    target_iso = valid_time.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    url = f"http://thredds.ucar.edu/thredds/dodsC/grib/NCEP/GFS/Global_0p25deg/GFS_Global_0p25deg_{run_date_str}_{init}.grib2"
+    ncss_url = (
+        f"http://thredds.ucar.edu/thredds/ncss/grib/NCEP/GFS/Global_0p25deg/"
+        f"GFS_Global_0p25deg_{run_date_str}_{init}.grib2?"
+        f"var=u-component_of_wind_isobaric&var=v-component_of_wind_isobaric&"
+        f"north={lat_max}&south={lat_min}&west={lon_min}&east={lon_max}&"
+        f"time={target_iso}&accept=netcdf"
+    )
 
     try:
-        # 2. Open GFS OpenDAP URL
-        data = xr.open_dataset(url)
-        u_wind = data['u-component_of_wind_isobaric']
-        v_wind = data['v-component_of_wind_isobaric']
+        # 2. Fetch and Load Dataset
+        file_bytes = open_url(ncss_url)
+        byte_stream = io.BytesIO(file_bytes.read())
+        ds = xr.open_dataset(byte_stream, engine="scipy")
 
-        # Determine step interpolation array along great-circle line
+        u_wind = ds['u-component_of_wind_isobaric'].squeeze()
+        v_wind = ds['v-component_of_wind_isobaric'].squeeze()
+
+        # 3. Line Interpolation along Transect
         num_pts = 100
         lats = np.linspace(start_lat, end_lat, num_pts)
         lons = np.linspace(start_lon, end_lon, num_pts)
 
-        # 3. Extract cross-section values across transect
-        target_time = valid_time.strftime("%Y-%m-%dT%H:%M:%S")
-        
-        u_cross = u_wind.sel(time=target_time).interp(
-            lat=xr.DataArray(lats, dims="index"),
-            lon=xr.DataArray(lons, dims="index")
+        u_cross = u_wind.interp(
+            latitude=xr.DataArray(lats, dims="index"),
+            longitude=xr.DataArray(lons, dims="index")
         )
-        v_cross = v_wind.sel(time=target_time).interp(
-            lat=xr.DataArray(lats, dims="index"),
-            lon=xr.DataArray(lons, dims="index")
+        v_cross = v_wind.interp(
+            latitude=xr.DataArray(lats, dims="index"),
+            longitude=xr.DataArray(lons, dims="index")
         )
 
-        # Convert m/s to knots
+        # Convert m/s to Knots (replacement for MetPy convert_units)
         u_knots = u_cross * 1.94384
         v_knots = v_cross * 1.94384
+
+        # 4. Pure Python MetPy replacement for mpcalc.cross_section_components
+        dlat = np.radians(end_lat - start_lat)
+        dlon = np.radians(end_lon - start_lon)
+        tangent_angle = np.arctan2(dlat, dlon)
+
+        t_wind = u_knots * np.cos(tangent_angle) + v_knots * np.sin(tangent_angle)
+        n_wind = -u_knots * np.sin(tangent_angle) + v_knots * np.cos(tangent_angle)
         wind_speed = np.sqrt(u_knots**2 + v_knots**2)
 
-        # 4. Render Plot
+        # 5. Plotting
         fig, ax = plt.subplots(figsize=(14, 7))
 
-        isobaric_levels = u_cross['isobaric'] / 100.0  # Pa to hPa
-        
+        isobaric_levels = u_cross['isobaric']
+        if isobaric_levels.max() > 2000:
+            isobaric_levels = isobaric_levels / 100.0
+
         contour = ax.contourf(lons, isobaric_levels, wind_speed.values, levels=np.arange(0, 100, 5), cmap='gist_ncar')
         cbar = fig.colorbar(contour, ax=ax)
-        cbar.set_label('Wind Speed (kt)')
+        cbar.set_label('Wind Speed (knots)')
 
-        # Draw wind barbs
+        # Plot Wind Barbs using tangential and normal wind components
         ax.barbs(
             lons[::5], isobaric_levels[::2],
-            u_knots.values[::2, ::5], v_knots.values[::2, ::5],
+            t_wind.values[::2, ::5], n_wind.values[::2, ::5],
             color='red'
         )
 
@@ -165,7 +186,7 @@ async def generate_cross_section(event):
         plt.close(fig)
 
     except Exception as e:
-        output_div.innerHTML = f"<p style='color:red; font-weight:bold;'>Processing Error: {str(e)}</p>"
+        output_div.innerHTML = f"<p style='color:red; font-weight:bold;'>Error: {str(e)}</p>"
     </script>
 </body>
 </html>
