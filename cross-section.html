@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GFS Cross Section Generator</title>
+    <title>GFS Wind Cross Section Plotter</title>
     <!-- PyScript Core -->
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
 
-    <!-- Configure required Python packages explicitly via JSON config -->
+    <!-- Configure required standard packages in valid JSON format -->
     <script type="py" config='{
         "packages": ["matplotlib", "numpy", "xarray"]
     }'></script>
@@ -27,7 +27,7 @@
 <body>
 
     <div class="card">
-        <h2>GFS Vertical Cross-Section Generator</h2>
+        <h2>GFS Vertical Wind Cross-Section Generator</h2>
 
         <div class="form-grid">
             <div class="form-group">
@@ -74,13 +74,8 @@
 
     <div id="output"></div>
 
-    <!-- Python Script with Micropip async loader for MetPy & Cartopy -->
+    <!-- Pure Python Script using PyScript -->
     <script type="py">
-import micropip
-
-# Ensure Pyodide installs required packages
-await micropip.install(["matplotlib", "numpy", "xarray", "netCDF4"])
-
 from datetime import datetime, timedelta
 from pyscript import display
 from js import document
@@ -90,18 +85,9 @@ import xarray as xr
 
 async def generate_cross_section(event):
     output_div = document.getElementById("output")
-    output_div.innerHTML = "<p style='color:#0066cc; font-weight:bold;'>Installing atmospheric packages (MetPy/Cartopy) & Fetching GFS Data... Please wait.</p>"
+    output_div.innerHTML = "<p style='color:#0066cc; font-weight:bold;'>Fetching GFS Dataset & Processing Cross-Section... Please wait.</p>"
 
-    # Dynamically install MetPy & Cartopy wheels if missing
-    try:
-        await micropip.install(["metpy", "cartopy"])
-        import metpy.calc as mpcalc
-        from metpy.interpolate import cross_section
-    except Exception as pkg_err:
-        output_div.innerHTML = f"<p style='color:red;'><b>Browser Package Error:</b> MetPy/Cartopy C-extensions require precompiled WebAssembly binaries in Pyodide. Details: {str(pkg_err)}</p>"
-        return
-
-    # 1. Extract values from UI Controls
+    # 1. Get input values
     raw_date = document.getElementById("run_date").value
     run_date_str = raw_date.replace("-", "")
     init = document.getElementById("init_hour").value
@@ -121,47 +107,55 @@ async def generate_cross_section(event):
     url = f"http://thredds.ucar.edu/thredds/dodsC/grib/NCEP/GFS/Global_0p25deg/GFS_Global_0p25deg_{run_date_str}_{init}.grib2"
 
     try:
+        # 2. Open GFS OpenDAP URL
         data = xr.open_dataset(url)
-        data_2 = data.metpy.parse_cf(['u-component_of_wind_isobaric', 'v-component_of_wind_isobaric']).squeeze()
+        u_wind = data['u-component_of_wind_isobaric']
+        v_wind = data['v-component_of_wind_isobaric']
 
-        lat_min, lat_max = min(start_lat, end_lat) - 2.0, max(start_lat, end_lat) + 2.0
-        lon_min, lon_max = min(start_lon, end_lon) - 2.0, max(start_lon, end_lon) + 2.0
+        # Determine step interpolation array along great-circle line
+        num_pts = 100
+        lats = np.linspace(start_lat, end_lat, num_pts)
+        lons = np.linspace(start_lon, end_lon, num_pts)
 
-        data_3 = data_2.metpy.sel(
-            lat=slice(lat_max, lat_min), 
-            lon=slice(lon_min, lon_max),
-            time=valid_time.strftime("%Y-%m-%dT%H:%M:%S")
+        # 3. Extract cross-section values across transect
+        target_time = valid_time.strftime("%Y-%m-%dT%H:%M:%S")
+        
+        u_cross = u_wind.sel(time=target_time).interp(
+            lat=xr.DataArray(lats, dims="index"),
+            lon=xr.DataArray(lons, dims="index")
+        )
+        v_cross = v_wind.sel(time=target_time).interp(
+            lat=xr.DataArray(lats, dims="index"),
+            lon=xr.DataArray(lons, dims="index")
         )
 
-        cross = cross_section(data_3, start, end).set_coords(('lat', 'lon'))
-        cross['u-component_of_wind_isobaric'] = cross['u-component_of_wind_isobaric'].metpy.convert_units('knots')
-        cross['v-component_of_wind_isobaric'] = cross['v-component_of_wind_isobaric'].metpy.convert_units('knots')
+        # Convert m/s to knots
+        u_knots = u_cross * 1.94384
+        v_knots = v_cross * 1.94384
+        wind_speed = np.sqrt(u_knots**2 + v_knots**2)
 
-        cross['t_wind'], cross['n_wind'] = mpcalc.cross_section_components(
-            cross['u-component_of_wind_isobaric'],
-            cross['v-component_of_wind_isobaric']
+        # 4. Render Plot
+        fig, ax = plt.subplots(figsize=(14, 7))
+
+        isobaric_levels = u_cross['isobaric'] / 100.0  # Pa to hPa
+        
+        contour = ax.contourf(lons, isobaric_levels, wind_speed.values, levels=np.arange(0, 100, 5), cmap='gist_ncar')
+        cbar = fig.colorbar(contour, ax=ax)
+        cbar.set_label('Wind Speed (kt)')
+
+        # Draw wind barbs
+        ax.barbs(
+            lons[::5], isobaric_levels[::2],
+            u_knots.values[::2, ::5], v_knots.values[::2, ::5],
+            color='red'
         )
-
-        fig = plt.figure(1, figsize=(15, 8))
-        ax = plt.axes()
-
-        wind_speed = np.sqrt(cross['u-component_of_wind_isobaric']**2 + cross['v-component_of_wind_isobaric']**2)
-        w_contourf = ax.contourf(cross['lon'], cross['isobaric'], wind_speed, levels=np.arange(0, 100, 2), cmap='gist_ncar')
-        w_colorbar = fig.colorbar(w_contourf, ax=ax)
-        w_colorbar.set_label('Wind Speed (knots)')
-
-        wind_slc_vert = list(range(0, cross['isobaric'].size, 2))
-        wind_slc_horz = slice(0, cross['lon'].size, 2)
-        ax.barbs(cross['lon'][wind_slc_horz], cross['isobaric'][wind_slc_vert],
-                 cross['t_wind'][wind_slc_vert, wind_slc_horz],
-                 cross['n_wind'][wind_slc_vert, wind_slc_horz], color='red')
 
         ax.set_yscale('symlog')
         ax.set_ylim(1000, 100)
         ax.set_ylabel('Pressure (hPa)')
         ax.set_xlabel('Longitude (°E)')
         ax.set_title(
-            f'GFS Wind Cross-Section ({init[:2]}Z Run +{fhour}h)\n'
+            f'GFS Cross-Section ({init[:2]}Z Run +{fhour}h)\n'
             f'Start: {start} | End: {end}\n'
             f'Valid: {valid_time.strftime("%Y-%m-%d %H:%MZ")}'
         )
@@ -171,7 +165,7 @@ async def generate_cross_section(event):
         plt.close(fig)
 
     except Exception as e:
-        output_div.innerHTML = f"<p style='color:red; font-weight:bold;'>Error processing dataset: {str(e)}</p>"
+        output_div.innerHTML = f"<p style='color:red; font-weight:bold;'>Processing Error: {str(e)}</p>"
     </script>
 </body>
 </html>
