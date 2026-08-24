@@ -7,17 +7,16 @@
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
 
-    <!-- Configure required Python packages -->
-    <script type="py" config>
-        packages = ["xarray", "numpy", "matplotlib", "metpy", "cartopy"]
-    </script>
+    <!-- Configure required Python packages explicitly via JSON config -->
+    <script type="py" config='{
+        "packages": ["matplotlib", "numpy", "xarray"]
+    }'></script>
 
     <style>
         body { font-family: sans-serif; margin: 20px; background-color: #f8f9fa; }
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 650px; }
         .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 15px; }
         .form-group { display: flex; flex-direction: column; }
-        .full-width { grid-column: 1 / -1; }
         label { font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #333; }
         input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
         button { width: 100%; padding: 12px; background: #0066cc; color: white; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; }
@@ -31,7 +30,6 @@
         <h2>GFS Vertical Cross-Section Generator</h2>
 
         <div class="form-grid">
-            <!-- Run Configuration -->
             <div class="form-group">
                 <label for="run_date">Run Date</label>
                 <input type="date" id="run_date" value="2026-08-03">
@@ -50,7 +48,6 @@
                 <input type="number" id="fhour" value="102" min="0" max="384" step="3">
             </div>
 
-            <!-- Spatial Coordinates -->
             <div class="form-group">
                 <label for="start_lat">Start Latitude (°N)</label>
                 <input type="number" step="0.1" id="start_lat" value="21.1">
@@ -59,7 +56,7 @@
                 <label for="start_lon">Start Longitude (°E)</label>
                 <input type="number" step="0.1" id="start_lon" value="109.7">
             </div>
-            <div class="form-group"></div> <!-- Spacer -->
+            <div class="form-group"></div>
 
             <div class="form-group">
                 <label for="end_lat">End Latitude (°N)</label>
@@ -69,35 +66,44 @@
                 <label for="end_lon">End Longitude (°E)</label>
                 <input type="number" step="0.1" id="end_lon" value="116.7">
             </div>
-            <div class="form-group"></div> <!-- Spacer -->
+            <div class="form-group"></div>
         </div>
 
         <button id="run-btn" py-click="generate_cross_section">Generate Cross Section Plot</button>
     </div>
 
-    <!-- Target div for Python Matplotlib output -->
     <div id="output"></div>
 
-    <!-- Python Script -->
+    <!-- Python Script with Micropip async loader for MetPy & Cartopy -->
     <script type="py">
+import micropip
+
+# Ensure Pyodide installs required packages
+await micropip.install(["matplotlib", "numpy", "xarray", "netCDF4"])
+
 from datetime import datetime, timedelta
 from pyscript import display
 from js import document
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-import metpy.calc as mpcalc
-from metpy.interpolate import cross_section
 
-def generate_cross_section(event):
+async def generate_cross_section(event):
     output_div = document.getElementById("output")
-    output_div.innerHTML = "<p style='color:#0066cc; font-weight:bold;'>Fetching GFS THREDDS Dataset & Processing... Please wait.</p>"
+    output_div.innerHTML = "<p style='color:#0066cc; font-weight:bold;'>Installing atmospheric packages (MetPy/Cartopy) & Fetching GFS Data... Please wait.</p>"
+
+    # Dynamically install MetPy & Cartopy wheels if missing
+    try:
+        await micropip.install(["metpy", "cartopy"])
+        import metpy.calc as mpcalc
+        from metpy.interpolate import cross_section
+    except Exception as pkg_err:
+        output_div.innerHTML = f"<p style='color:red;'><b>Browser Package Error:</b> MetPy/Cartopy C-extensions require precompiled WebAssembly binaries in Pyodide. Details: {str(pkg_err)}</p>"
+        return
 
     # 1. Extract values from UI Controls
-    raw_date = document.getElementById("run_date").value  # YYYY-MM-DD
-    run_date_str = raw_date.replace("-", "")              # YYYYMMDD
+    raw_date = document.getElementById("run_date").value
+    run_date_str = raw_date.replace("-", "")
     init = document.getElementById("init_hour").value
     fhour = int(document.getElementById("fhour").value)
 
@@ -109,30 +115,24 @@ def generate_cross_section(event):
     start = (start_lat, start_lon)
     end = (end_lat, end_lon)
 
-    # 2. Calculate initial time & forecast valid time
     init_datetime = datetime.strptime(f"{run_date_str}{init[:2]}", "%Y%m%d%H")
     valid_time = init_datetime + timedelta(hours=fhour)
 
-    # Construct THREDDS URL
     url = f"http://thredds.ucar.edu/thredds/dodsC/grib/NCEP/GFS/Global_0p25deg/GFS_Global_0p25deg_{run_date_str}_{init}.grib2"
 
     try:
-        # 3. Load & Subset Data
         data = xr.open_dataset(url)
         data_2 = data.metpy.parse_cf(['u-component_of_wind_isobaric', 'v-component_of_wind_isobaric']).squeeze()
 
-        # Dynamic bounding box with a 2-degree safety padding
         lat_min, lat_max = min(start_lat, end_lat) - 2.0, max(start_lat, end_lat) + 2.0
         lon_min, lon_max = min(start_lon, end_lon) - 2.0, max(start_lon, end_lon) + 2.0
 
-        # Select location bounding region and exact valid time
         data_3 = data_2.metpy.sel(
             lat=slice(lat_max, lat_min), 
             lon=slice(lon_min, lon_max),
             time=valid_time.strftime("%Y-%m-%dT%H:%M:%S")
         )
 
-        # 4. Perform MetPy Cross Section
         cross = cross_section(data_3, start, end).set_coords(('lat', 'lon'))
         cross['u-component_of_wind_isobaric'] = cross['u-component_of_wind_isobaric'].metpy.convert_units('knots')
         cross['v-component_of_wind_isobaric'] = cross['v-component_of_wind_isobaric'].metpy.convert_units('knots')
@@ -142,7 +142,6 @@ def generate_cross_section(event):
             cross['v-component_of_wind_isobaric']
         )
 
-        # 5. Plotting
         fig = plt.figure(1, figsize=(15, 8))
         ax = plt.axes()
 
@@ -151,14 +150,12 @@ def generate_cross_section(event):
         w_colorbar = fig.colorbar(w_contourf, ax=ax)
         w_colorbar.set_label('Wind Speed (knots)')
 
-        # Wind barbs subsampling
         wind_slc_vert = list(range(0, cross['isobaric'].size, 2))
         wind_slc_horz = slice(0, cross['lon'].size, 2)
         ax.barbs(cross['lon'][wind_slc_horz], cross['isobaric'][wind_slc_vert],
                  cross['t_wind'][wind_slc_vert, wind_slc_horz],
                  cross['n_wind'][wind_slc_vert, wind_slc_horz], color='red')
 
-        # Format Log Y-Axis (Pressure Level)
         ax.set_yscale('symlog')
         ax.set_ylim(1000, 100)
         ax.set_ylabel('Pressure (hPa)')
@@ -169,13 +166,12 @@ def generate_cross_section(event):
             f'Valid: {valid_time.strftime("%Y-%m-%d %H:%MZ")}'
         )
 
-        # Output rendering to HTML container
         output_div.innerHTML = ""
         display(fig, target="output")
         plt.close(fig)
 
     except Exception as e:
-        output_div.innerHTML = f"<p style='color:red; font-weight:bold;'>Error processing request: {str(e)}</p>"
+        output_div.innerHTML = f"<p style='color:red; font-weight:bold;'>Error processing dataset: {str(e)}</p>"
     </script>
 </body>
 </html>
