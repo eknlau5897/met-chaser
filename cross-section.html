@@ -31,8 +31,9 @@
 
         <div class="form-grid">
             <div class="form-group">
-                <label for="run_date">Run Date</label>
-                <input type="date" id="run_date" value="2026-08-03">
+                <label for="run_date">Run Date (Must be within last 7 days)</label>
+                <!-- Updated default to a recent active date placeholder -->
+                <input type="date" id="run_date" value="2026-08-20">
             </div>
             <div class="form-group">
                 <label for="init_hour">Model Run (UTC)</label>
@@ -45,7 +46,7 @@
             </div>
             <div class="form-group">
                 <label for="fhour">Forecast Hour (Fxx)</label>
-                <input type="number" id="fhour" value="102" min="0" max="384" step="3">
+                <input type="number" id="fhour" value="12" min="0" max="384" step="3">
             </div>
 
             <div class="form-group">
@@ -88,7 +89,6 @@ async def generate_cross_section(event):
     output_div = document.getElementById("output")
     output_div.innerHTML = "<p style='color:#0066cc; font-weight:bold;'>Fetching GFS Data via THREDDS... Please wait.</p>"
 
-    # 1. Read Inputs
     raw_date = document.getElementById("run_date").value
     run_date_str = raw_date.replace("-", "")
     init = document.getElementById("init_hour").value
@@ -118,23 +118,19 @@ async def generate_cross_section(event):
     )
 
     try:
-        # 2. Fetch binary stream asynchronously using JS fetch
         response = await fetch(ncss_url)
         if not response.ok:
-            raise Exception(f"HTTP Error {response.status}: Failed to reach THREDDS server.")
+            raise Exception(f"HTTP Error {response.status}: GFS data for run date '{raw_date}' is expired or unavailable on THREDDS.")
 
-        # Convert JS ArrayBuffer into Python bytes object
         array_buffer = await response.arrayBuffer()
         file_bytes = bytes(pyodide.ffi.to_memoryview(array_buffer))
 
-        # Open in Xarray using Scipy engine
         byte_stream = io.BytesIO(file_bytes)
         ds = xr.open_dataset(byte_stream, engine="scipy")
 
         u_wind = ds['u-component_of_wind_isobaric'].squeeze()
         v_wind = ds['v-component_of_wind_isobaric'].squeeze()
 
-        # 3. Interpolate along transect
         num_pts = 100
         lats = np.linspace(start_lat, end_lat, num_pts)
         lons = np.linspace(start_lon, end_lon, num_pts)
@@ -148,11 +144,9 @@ async def generate_cross_section(event):
             longitude=xr.DataArray(lons, dims="index")
         )
 
-        # Convert m/s to Knots
         u_knots = u_cross * 1.94384
         v_knots = v_cross * 1.94384
 
-        # 4. Tangential/Normal Component Projections
         dlat = np.radians(end_lat - start_lat)
         dlon = np.radians(end_lon - start_lon)
         tangent_angle = np.arctan2(dlat, dlon)
@@ -161,7 +155,6 @@ async def generate_cross_section(event):
         n_wind = -u_knots * np.sin(tangent_angle) + v_knots * np.cos(tangent_angle)
         wind_speed = np.sqrt(u_knots**2 + v_knots**2)
 
-        # 5. Plotting
         fig, ax = plt.subplots(figsize=(14, 7))
 
         isobaric_levels = u_cross['isobaric']
