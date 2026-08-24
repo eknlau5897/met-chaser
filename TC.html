@@ -128,6 +128,69 @@
             box-shadow: 0 4px 12px rgba(2, 132, 199, 0.5);
             color: #ffffff;
         }
+        @media (max-width: 600px) {
+    #info-panel {
+        top: 10px;
+        left: 10px;
+        width: calc(100vw - 44px); /* Scales panel to phone width */
+        max-width: 280px;
+        padding: 10px 12px;
+        max-height: 85vh;          /* Prevents overflow off screen */
+        overflow-y: auto;          /* Enables scroll if screen is small */
+    }
+
+    .title {
+        font-size: 12px;
+        margin-bottom: 6px;
+        padding-bottom: 4px;
+    }
+
+    .select-group {
+        margin-bottom: 8px;
+    }
+
+    .select-group label {
+        font-size: 10px;
+    }
+
+    .system-select {
+        padding: 6px;
+        font-size: 12px;
+    }
+
+    .intensity-card {
+        padding: 6px 8px;
+        margin-bottom: 6px;
+    }
+
+    .info-row {
+        font-size: 10px;
+        margin-bottom: 3px;
+    }
+
+    /* Shrinks the Legend items and color boxes */
+    .legend {
+        margin-top: 6px;
+        padding-top: 6px;
+    }
+
+    .legend-item {
+        font-size: 9.5px;
+        margin-bottom: 2px;
+    }
+
+    .legend-color-box {
+        width: 9px;
+        height: 9px;
+        margin-right: 6px;
+    }
+
+    .diag-link-btn {
+        margin-top: 8px;
+        padding: 6px 8px;
+        font-size: 11px;
+    }
+}
     </style>
 </head>
 <body>
