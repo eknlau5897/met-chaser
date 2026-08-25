@@ -335,7 +335,8 @@
         if (wind >= 64)  return { color: "yellow", cat: "Category 1 Hurricane" };
         if (wind >= 47)  return { color: "blue", cat: "Severe Tropical Storm" };
         if (wind >= 34)  return { color: "green", cat: "Tropical Storm" };
-        return { color: "grey", cat: "Tropical Depression" };
+        if (wind >= 22) return { color: "grey", cat:"Tropical Depression"}
+        return { color: "white", cat: "Disturbance/EX-TC" };
     }
 
     function calculateDistance(lat1, lon1, lat2, lon2) {
