@@ -267,15 +267,14 @@
                 { time: "2026-08-24 06Z", lat:20, lon:107.4, wind:45,mslp:988,type:"TS"},
                 { time: "2026-08-24 12Z", lat:19.6,lon:107.3, wind:45,mslp:988,type:"TS"},
                 { time: "2026-08-24 18Z", lat:19.6,lon:107.5,wind:40,mslp:994,type:"TS"},
-                { time: "2026-08-24 00Z", lat:19.4,lon:107.6, wind:40,mslp:994,type:"TS"},
-                { time: "2026-08-24 06Z", lat:19.4,lon:108.2, wind:40,mslp:994,type:"TS"},
-                { time: "2026-08-24 12Z", lat:19.5,lon:109, wind:40,mslp:994,type:"TS"},
-                { time: "2026-08-25 18Z", lat:20,lon:109.8, wind:35,mslp:996,type:"TS"}
+                { time: "2026-08-25 00Z", lat:19.4,lon:107.6, wind:40,mslp:994,type:"TS"},
+                { time: "2026-08-25 06Z", lat:19.4,lon:108.2, wind:40,mslp:994,type:"TS"},
+                { time: "2026-08-25 12Z", lat:19.5,lon:109, wind:40,mslp:994,type:"TS"},
+                { time: "2026-08-25 18Z", lat:20,lon:109.8, wind:35,mslp:996,type:"TS"},
+                { time: "2026-08-26 00Z", lat:21,lon:110.6, wind:30,mslp:998,type:"TD"},
+                { time: "2026-08-26 06Z", lat:21.8,lon:111.1, wind:20,mslp:1002,type:"DB"}
             ],
-            forecast: [
-                { hour: 0,   lat: 20,lon: 109.8, wind: 35, mslp: 996,type: "TS" },
-                { hour: 24,  lat: 21.9, lon: 111.4, wind: 25, mslp: 1002, type: "DB" },
-            ]
+            forecast: []
         },
         "17W 沙德爾": {
             name: "17W",
@@ -302,14 +301,16 @@
                 { time: "2026-08-25 00Z", lat: 26.1, lon:131.2, wind: 90,mslp:955, type:"C2"},
                 { time: "2026-08-25 06Z", lat: 26.8, lon:130.1, wind: 90,mslp:955, type:"C2"},
                 { time: "2026-08-25 12Z", lat: 27.1, lon:129.1, wind: 85,mslp:955,type:"C2"},
-                { time: "2026-08-25 18Z", lat: 27.5, lon:128.1, wind: 85,mslp:955,type:"C2"}
+                { time: "2026-08-25 18Z", lat: 27.5, lon:128.1, wind: 85,mslp:955,type:"C2"},
+                { time: "2026-08-26 00Z", lat: 27.9, lon:127.2, wind: 85,mslp:955,type:"C2"},
+                { time: "2026-08-26-06Z", lat: 28.4, lon:126.6, wind: 90,mslp:952,type:"C2"},
+                { time: "2026-08-26 12Z", lat:28.7, lon:125.7, wind: 90,mslp:952,type:"C2"}
             ],
-            forecast: [
-                { hour: 0,   lat: 27.5, lon: 128.1, wind: 85,  mslp: 955, type: "C2" },
-                { hour: 24,  lat: 27.9, lon: 125.2, wind: 75,  mslp: 965, type: "C1" },
-                { hour: 48,  lat: 26.8, lon: 122.5, wind: 70, mslp: 970, type: "C1" },
-                { hour: 72,  lat: 26, lon: 117.4, wind: 50, mslp: 988, type: "STS" },
-                { hour: 96,  lat: 25, lon: 114.3, wind: 35, mslp: 998, type: "TS" },
+            forecast:[
+                { hour: 0,   lat: 28.7, lon: 125.7, wind: 90,  mslp: 952, type: "C2" },
+                { hour: 24,  lat: 28.6, lon: 124.6, wind: 75,  mslp: 965, type: "C1" },
+            ,
+                {    hour: 96,  lat: 25, lon: 114.3, wind: 35, mslp: 998, type: "TS" },
                 { hour: 120, lat: 23.8,lon:112.5, wind: 20, mslp:1004,type:"DB"}
             ]
         }
@@ -463,7 +464,7 @@
     }
 
     populateDropdown();
-    switchSystem("18W 紫檀");
+    switchSystem("17W 沙德爾");
 </script>
 
 </body>
