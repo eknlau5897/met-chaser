@@ -128,69 +128,69 @@
             box-shadow: 0 4px 12px rgba(2, 132, 199, 0.5);
             color: #ffffff;
         }
+
         @media (max-width: 600px) {
-    #info-panel {
-        top: 10px;
-        left: 10px;
-        width: calc(100vw - 44px); /* Scales panel to phone width */
-        max-width: 280px;
-        padding: 10px 12px;
-        max-height: 85vh;          /* Prevents overflow off screen */
-        overflow-y: auto;          /* Enables scroll if screen is small */
-    }
+            #info-panel {
+                top: 10px;
+                left: 10px;
+                width: calc(100vw - 44px);
+                max-width: 280px;
+                padding: 10px 12px;
+                max-height: 85vh;
+                overflow-y: auto;
+            }
 
-    .title {
-        font-size: 12px;
-        margin-bottom: 6px;
-        padding-bottom: 4px;
-    }
+            .title {
+                font-size: 12px;
+                margin-bottom: 6px;
+                padding-bottom: 4px;
+            }
 
-    .select-group {
-        margin-bottom: 8px;
-    }
+            .select-group {
+                margin-bottom: 8px;
+            }
 
-    .select-group label {
-        font-size: 10px;
-    }
+            .select-group label {
+                font-size: 10px;
+            }
 
-    .system-select {
-        padding: 6px;
-        font-size: 12px;
-    }
+            .system-select {
+                padding: 6px;
+                font-size: 12px;
+            }
 
-    .intensity-card {
-        padding: 6px 8px;
-        margin-bottom: 6px;
-    }
+            .intensity-card {
+                padding: 6px 8px;
+                margin-bottom: 6px;
+            }
 
-    .info-row {
-        font-size: 10px;
-        margin-bottom: 3px;
-    }
+            .info-row {
+                font-size: 10px;
+                margin-bottom: 3px;
+            }
 
-    /* Shrinks the Legend items and color boxes */
-    .legend {
-        margin-top: 6px;
-        padding-top: 6px;
-    }
+            .legend {
+                margin-top: 6px;
+                padding-top: 6px;
+            }
 
-    .legend-item {
-        font-size: 9.5px;
-        margin-bottom: 2px;
-    }
+            .legend-item {
+                font-size: 9.5px;
+                margin-bottom: 2px;
+            }
 
-    .legend-color-box {
-        width: 9px;
-        height: 9px;
-        margin-right: 6px;
-    }
+            .legend-color-box {
+                width: 9px;
+                height: 9px;
+                margin-right: 6px;
+            }
 
-    .diag-link-btn {
-        margin-top: 8px;
-        padding: 6px 8px;
-        font-size: 11px;
-    }
-}
+            .diag-link-btn {
+                margin-top: 8px;
+                padding: 6px 8px;
+                font-size: 11px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -221,7 +221,7 @@
         <div style="margin-top: 8px; font-weight: 600; color: #cbd5e1; font-size: 11px; margin-bottom: 6px;">
             SSHWS Intensity Scale:
         </div>
-        <div class="legend-item"><span class="legend-color-box" style="background: grey;"></span>TD / MD (< 34 kt)</div>
+        <div class="legend-item"><span class="legend-color-box" style="background: grey;"></span>TD / MD (&lt; 34 kt)</div>
         <div class="legend-item"><span class="legend-color-box" style="background: green;"></span>Tropical Storm (34–46 kt)</div>
         <div class="legend-item"><span class="legend-color-box" style="background: blue;"></span>Severe Tropical Storm (47–63 kt)</div>
         <div class="legend-item"><span class="legend-color-box" style="background: yellow;"></span>Category 1 (64–82 kt)</div>
@@ -254,25 +254,25 @@
                 { time: "2026-08-20 18Z", lat: 20.1, lon: 108.4, wind: 30, mslp: 996, type: "TD" },
                 { time: "2026-08-21 06Z", lat: 20.4, lon: 108.5, wind: 35, mslp: 994, type: "TS" },
                 { time: "2026-08-21 12Z", lat: 20.8, lon: 108.6, wind: 35, mslp: 994, type: "TS" },
-                { time: "2026-08-21 18Z", lat:21.3, lon:108.7,wind:35, mslp: 992, type: "TS" },
-                { time: "2026-08-22 00Z", lat:21.3,lon:108.1,wind:40,mslp:990,type:"TS"},
-                { time: "2026-08-22 06Z", lat:21.2,lon:108.3,wind:40,mslp:990,type:"TS"},
-                { time: "2026-08-22 12Z", lat:21.1,lon:108.4,wind:40,mslp:990,type:"TS"},
-                { time: "2026-08-22 18Z", lat:20.9,lon:108,wind:40,mslp:990,type:"TS"},
-                { time: "2026-08-23 00Z", lat:20.7,lon:107.9,wind:40,mslp:990,type:"TS"},
-                { time: "2026-08-23 06Z", lat:20.6,lon:108,wind:40,mslp:990,type:"TS"},
-                { time: "2026-08-23 12Z", lat:20.5, lon:108.2, wind:40,mslp:990,type:"TS"},
-                { time: "2026-08-23 18Z", lat:20.5, lon:107.9, wind:45,mslp:988,type:"TS"},
-                { time: "2026-08-24 00Z", lat:20.5, lon:107.6,wind:45,mslp:988,type:"TS"},
-                { time: "2026-08-24 06Z", lat:20, lon:107.4, wind:45,mslp:988,type:"TS"},
-                { time: "2026-08-24 12Z", lat:19.6,lon:107.3, wind:45,mslp:988,type:"TS"},
-                { time: "2026-08-24 18Z", lat:19.6,lon:107.5,wind:40,mslp:994,type:"TS"},
-                { time: "2026-08-25 00Z", lat:19.4,lon:107.6, wind:40,mslp:994,type:"TS"},
-                { time: "2026-08-25 06Z", lat:19.4,lon:108.2, wind:40,mslp:994,type:"TS"},
-                { time: "2026-08-25 12Z", lat:19.5,lon:109, wind:40,mslp:994,type:"TS"},
-                { time: "2026-08-25 18Z", lat:20,lon:109.8, wind:35,mslp:996,type:"TS"},
-                { time: "2026-08-26 00Z", lat:21,lon:110.6, wind:30,mslp:998,type:"TD"},
-                { time: "2026-08-26 06Z", lat:21.8,lon:111.1, wind:20,mslp:1002,type:"DB"}
+                { time: "2026-08-21 18Z", lat: 21.3, lon: 108.7, wind: 35, mslp: 992, type: "TS" },
+                { time: "2026-08-22 00Z", lat: 21.3, lon: 108.1, wind: 40, mslp: 990, type: "TS" },
+                { time: "2026-08-22 06Z", lat: 21.2, lon: 108.3, wind: 40, mslp: 990, type: "TS" },
+                { time: "2026-08-22 12Z", lat: 21.1, lon: 108.4, wind: 40, mslp: 990, type: "TS" },
+                { time: "2026-08-22 18Z", lat: 20.9, lon: 108.0, wind: 40, mslp: 990, type: "TS" },
+                { time: "2026-08-23 00Z", lat: 20.7, lon: 107.9, wind: 40, mslp: 990, type: "TS" },
+                { time: "2026-08-23 06Z", lat: 20.6, lon: 108.0, wind: 40, mslp: 990, type: "TS" },
+                { time: "2026-08-23 12Z", lat: 20.5, lon: 108.2, wind: 40, mslp: 990, type: "TS" },
+                { time: "2026-08-23 18Z", lat: 20.5, lon: 107.9, wind: 45, mslp: 988, type: "TS" },
+                { time: "2026-08-24 00Z", lat: 20.5, lon: 107.6, wind: 45, mslp: 988, type: "TS" },
+                { time: "2026-08-24 06Z", lat: 20.0, lon: 107.4, wind: 45, mslp: 988, type: "TS" },
+                { time: "2026-08-24 12Z", lat: 19.6, lon: 107.3, wind: 45, mslp: 988, type: "TS" },
+                { time: "2026-08-24 18Z", lat: 19.6, lon: 107.5, wind: 40, mslp: 994, type: "TS" },
+                { time: "2026-08-25 00Z", lat: 19.4, lon: 107.6, wind: 40, mslp: 994, type: "TS" },
+                { time: "2026-08-25 06Z", lat: 19.4, lon: 108.2, wind: 40, mslp: 994, type: "TS" },
+                { time: "2026-08-25 12Z", lat: 19.5, lon: 109.0, wind: 40, mslp: 994, type: "TS" },
+                { time: "2026-08-25 18Z", lat: 20.0, lon: 109.8, wind: 35, mslp: 996, type: "TS" },
+                { time: "2026-08-26 00Z", lat: 21.0, lon: 110.6, wind: 30, mslp: 998, type: "TD" },
+                { time: "2026-08-26 06Z", lat: 21.8, lon: 111.1, wind: 20, mslp: 1002, type: "DB" }
             ],
             forecast: []
         },
@@ -283,49 +283,57 @@
                 { time: "2026-08-20 12Z", lat: 12.8, lon: 150.2, wind: 40, mslp: 996, type: "TS" },
                 { time: "2026-08-20 18Z", lat: 13.7, lon: 149.7, wind: 50, mslp: 988, type: "STS" },
                 { time: "2026-08-21 00Z", lat: 14.2, lon: 149.3, wind: 55, mslp: 985, type: "STS" },
-                { time: "2026-08-21 06Z", lat: 14.9, lon: 148.7, wind: 60, mslp: 980, type: "STS"},
-                { time: "2026-08-21 12Z", lat: 15.9, lon: 148.3, wind: 65, mslp:975, type:"C1"},
-                { time: "2026-08-21 18Z", lat: 16.9, lon: 147.8, wind:75, mslp:965, type:"C1"},
-                { time: "2026-08-22 00Z", lat: 18, lon:146.8, wind:85, mslp:958,type:"C2"},
-                { time: "2026-08-22 06Z", lat: 18.5, lon:146.1, wind:90,mslp:955,type:"C2"},
-                { time: "2026-08-22 12Z", lat: 19.6, lon:145.2, wind:105,mslp:948,type:"C3"},
-                { time: "2026-08-22 18Z", lat: 20.4, lon:143.9, wind: 110,mslp:945,type:"C3"},
-                { time: "2026-08-23 00Z", lat: 21, lon:142.5, wind: 110,mslp:945,type:"C3"},
-                { time: "2026-08-23 06Z", lat: 21.9, lon:141.1, wind: 110,mslp:945,type:"C3"},
-                { time: "2026-08-23 12Z", lat: 22.6, lon:139.6, wind: 110,mslp:945,type:"C3"},
-                { time: "2026-08-23 18Z", lat: 23.3, lon:137.9, wind: 110,mslp:945,type:"C3"},
-                { time: "2026-08-24 00Z", lat: 24.1, lon:135.6, wind: 110,mslp:945,type:"C3"},
-                { time: "2026-08-24 06Z", lat: 24.5, lon:134.9, wind: 110,mslp:945,type:"C3"},
-                { time: "2026-08-24 12Z", lat: 24.9, lon:133.5, wind: 100,mslp:952,type:"C3"},
-                { time: "2026-08-24 18Z", lat: 25.5, lon:132.2, wind: 100, mslp:952,type:"C3"},
-                { time: "2026-08-25 00Z", lat: 26.1, lon:131.2, wind: 90,mslp:955, type:"C2"},
-                { time: "2026-08-25 06Z", lat: 26.8, lon:130.1, wind: 90,mslp:955, type:"C2"},
-                { time: "2026-08-25 12Z", lat: 27.1, lon:129.1, wind: 85,mslp:955,type:"C2"},
-                { time: "2026-08-25 18Z", lat: 27.5, lon:128.1, wind: 85,mslp:955,type:"C2"},
-                { time: "2026-08-26 00Z", lat: 27.9, lon:127.2, wind: 85,mslp:955,type:"C2"},
-                { time: "2026-08-26-06Z", lat: 28.4, lon:126.6, wind: 90,mslp:952,type:"C2"},
-                { time: "2026-08-26 12Z", lat: 28.7, lon:125.7, wind: 90,mslp:952,type:"C2"},
-                { time: "2026-08-26 18Z", lat: 28.6, lon:125.3, wind: 90,mslp:952,type:"C2"},
-                { time: "2026-08-27 00Z", lat: 28.6, lon:124.9, wind: 90,mslp:952,type:"C2"},
-                { time: "2026-08-27 06Z", lat: 28.5, lon:124.2, wind: 85,mslp:955,type:"C2"},
-                { time: "2026-08-27 12Z", lat: 28.1, lon:123.5, wind: 80,mslp:960,type:"C1"},
+                { time: "2026-08-21 06Z", lat: 14.9, lon: 148.7, wind: 60, mslp: 980, type: "STS" },
+                { time: "2026-08-21 12Z", lat: 15.9, lon: 148.3, wind: 65, mslp: 975, type: "C1" },
+                { time: "2026-08-21 18Z", lat: 16.9, lon: 147.8, wind: 75, mslp: 965, type: "C1" },
+                { time: "2026-08-22 00Z", lat: 18.0, lon: 146.8, wind: 85, mslp: 958, type: "C2" },
+                { time: "2026-08-22 06Z", lat: 18.5, lon: 146.1, wind: 90, mslp: 955, type: "C2" },
+                { time: "2026-08-22 12Z", lat: 19.6, lon: 145.2, wind: 105, mslp: 948, type: "C3" },
+                { time: "2026-08-22 18Z", lat: 20.4, lon: 143.9, wind: 110, mslp: 945, type: "C3" },
+                { time: "2026-08-23 00Z", lat: 21.0, lon: 142.5, wind: 110, mslp: 945, type: "C3" },
+                { time: "2026-08-23 06Z", lat: 21.9, lon: 141.1, wind: 110, mslp: 945, type: "C3" },
+                { time: "2026-08-23 12Z", lat: 22.6, lon: 139.6, wind: 110, mslp: 945, type: "C3" },
+                { time: "2026-08-23 18Z", lat: 23.3, lon: 137.9, wind: 110, mslp: 945, type: "C3" },
+                { time: "2026-08-24 00Z", lat: 24.1, lon: 135.6, wind: 110, mslp: 945, type: "C3" },
+                { time: "2026-08-24 06Z", lat: 24.5, lon: 134.9, wind: 110, mslp: 945, type: "C3" },
+                { time: "2026-08-24 12Z", lat: 24.9, lon: 133.5, wind: 100, mslp: 952, type: "C3" },
+                { time: "2026-08-24 18Z", lat: 25.5, lon: 132.2, wind: 100, mslp: 952, type: "C3" },
+                { time: "2026-08-25 00Z", lat: 26.1, lon: 131.2, wind: 90, mslp: 955, type: "C2" },
+                { time: "2026-08-25 06Z", lat: 26.8, lon: 130.1, wind: 90, mslp: 955, type: "C2" },
+                { time: "2026-08-25 12Z", lat: 27.1, lon: 129.1, wind: 85, mslp: 955, type: "C2" },
+                { time: "2026-08-25 18Z", lat: 27.5, lon: 128.1, wind: 85, mslp: 955, type: "C2" },
+                { time: "2026-08-26 00Z", lat: 27.9, lon: 127.2, wind: 85, mslp: 955, type: "C2" },
+                { time: "2026-08-26 06Z", lat: 28.4, lon: 126.6, wind: 90, mslp: 952, type: "C2" },
+                { time: "2026-08-26 12Z", lat: 28.7, lon: 125.7, wind: 90, mslp: 952, type: "C2" },
+                { time: "2026-08-26 18Z", lat: 28.6, lon: 125.3, wind: 90, mslp: 952, type: "C2" },
+                { time: "2026-08-27 00Z", lat: 28.6, lon: 124.9, wind: 90, mslp: 952, type: "C2" },
+                { time: "2026-08-27 06Z", lat: 28.5, lon: 124.2, wind: 85, mslp: 955, type: "C2" },
+                { time: "2026-08-27 12Z", lat: 28.1, lon: 123.5, wind: 80, mslp: 960, type: "C1" }
             ],
-            forecast:[
-                { hour: 0, lat: 28.1, lon: 123.5, wind: 80,  mslp: 960, type: "C2" },
-                { hour: 24, lat: 27.5, lon: 118.6, wind: 50,  mslp: 985, type: "STS" },
-                { hour: 48, lat: 26.5, lon: 113.8, wind: 30, mslp:998, type:"TD"},
-                { hour: 72, lat: 24, lon:112, wind:20, mslp: 1004,type:"DB"},
+            forecast: [
+                { hour: 0, lat: 28.1, lon: 123.5, wind: 80, mslp: 960, type: "C2" },
+                { hour: 24, lat: 27.5, lon: 118.6, wind: 50, mslp: 985, type: "STS" },
+                { hour: 48, lat: 26.5, lon: 113.8, wind: 30, mslp: 998, type: "TD" },
+                { hour: 72, lat: 24.0, lon: 112.0, wind: 20, mslp: 1004, type: "DB" }
             ]
         }
     };
 
     let currentMapLayers = L.layerGroup();
 
-    const map = L.map('map', { zoomControl: false }).setView([19.7, 109.0], 6);
+    // Map initialization configured with fractional & smooth zoom settings
+    const map = L.map('map', { 
+        zoomControl: false,
+        zoomAnimation: true,
+        zoomSnap: 0.25,       // Smooth fractional zooming increments
+        zoomDelta: 0.5,       // Granular step size per scroll/click
+        wheelDebounceTime: 40 // Debounce mouse wheel to prevent jerky steps
+    }).setView([19.7, 109.0], 6);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 18,
-        attribution: 'CartoDB'
+    // Free OpenStreetMap base layer (No API key required)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
     L.control.zoom({ position: 'topright' }).addTo(map);
@@ -339,7 +347,7 @@
         if (wind >= 64)  return { color: "yellow", cat: "Category 1 Hurricane" };
         if (wind >= 47)  return { color: "blue", cat: "Severe Tropical Storm" };
         if (wind >= 34)  return { color: "green", cat: "Tropical Storm" };
-        if (wind >= 22) return { color: "grey", cat:"Tropical Depression"}
+        if (wind >= 22)  return { color: "grey", cat: "Tropical Depression" };
         return { color: "white", cat: "Disturbance/EX-TC" };
     }
 
@@ -410,7 +418,6 @@
                 fillOpacity: 1
             }).addTo(currentMapLayers);
 
-            // Observed Popup retaining Central Pressure (MSLP)
             marker.bindPopup(`
                 <div style="font-size:12px; font-family:sans-serif; min-width:180px;">
                     <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
@@ -446,7 +453,6 @@
                 fillOpacity: 0.9
             }).addTo(currentMapLayers);
 
-            // Forecast Popup retaining Central Pressure (MSLP)
             marker.bindPopup(`
                 <div style="font-size:12px; font-family:sans-serif; min-width:180px;">
                     <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
@@ -462,8 +468,11 @@
             `);
         });
 
-        // Center Map on active system
-        map.setView([latestObserved.lat, latestObserved.lon], 6);
+        // Smoothly fly and zoom to the active system position
+        map.flyTo([latestObserved.lat, latestObserved.lon], 6, {
+            duration: 1.5,
+            easeLinearity: 0.25
+        });
     }
 
     populateDropdown();
