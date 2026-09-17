@@ -175,10 +175,9 @@
             <div class="hidden md:flex items-center gap-4 text-xs text-slate-400">
                 <span>屬非官方預測</span>
             </div>
-            <a href="https://github.io">
-            <img src="https://mojombo.com" alt="Views" class="h-5" onerror="this.style.display='none'"/>
+            <a href="https://github.io" class="flex items-center gap-1 text-xs text-slate-400 hover:text-sky-400 transition-colors">
+            觀看次數: <span id="visitor-count">載入中...</span>
             </a>
-
         </div>
     </header>
 
@@ -297,6 +296,16 @@
 
         </div>
     </main>
+    <script>
+    fetch('https://countapi.xyz')
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('visitor-count').innerText = data.value;
+        })
+        .catch(() => {
+            document.getElementById('visitor-count').innerText = '1';
+        });
+    </script>   
 
     <!-- Footer -->
     <footer class="bg-slate-900 border-t border-slate-800 py-6 mt-12 text-center text-slate-400 text-xs">
