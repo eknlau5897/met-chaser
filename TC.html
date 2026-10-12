@@ -315,17 +315,17 @@
     <script-->
     <script>
     const systemsData = {
-        "95W": {
-            name: "95W",
+        "28W": {
+            name: "28W",
             diagUrl: "RIPS.html",
             observed: [
-                { time: "2026-10-11 12Z", lat: 14.2, lon: 151.4, wind: 20, mslp: 1004, type: "DB" },
-                { time: "2026-10-12 00Z", lat: 15.8, lon: 150.3, wind: 25, mslp: 1002, type: "TD" }
+                { time: "2026-10-11 00Z", lat: 14.2, lon: 151.4, wind: 20, mslp: 1004, type: "DB" }
             ],
                 forecast: [
-                 { hour: 0, lat: 15.8, lon: 150.3, wind: 25, mslp: 1004, type: "TD" },
-                 { hour: 24, lat: 19.4, lon: 147.4, wind: 35, mslp: 1002, type: "TD"},
-                 { hour: 48, lat: 22, lon:144.2, wind: 25, mslp:1000, type:"TD"}
+                 { hour: 0, lat: 14.2, lon: 151.4, wind: 20, mslp: 1004, type: "DB" },
+                 { hour: 24, lat: 17.4, lon: 148.9, wind: 25, mslp: 1002, type: "TD"},
+                 { hour: 48, lat: 19.6, lon:145.5, wind: 30, mslp:1000, type:"TD"},
+                 { hour: 72, lat:21.7, lon:141.5,wind:20, mslp:1004, type:"DB"}
             ]
         }
     };
@@ -487,7 +487,7 @@
     }
 
     populateDropdown();
-    switchSystem("95W");
+    switchSystem("28W");
 </script>
 
 </body>
