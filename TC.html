@@ -237,84 +237,25 @@
 
 <div id="map"></div>
 
-<!--script>
-    const systemsData = {
-        "17W 沙德爾": {
-            name: "17W",
+
+    <script>
+    const systemsData= {
+        "96W": {
+            name: "96W",
             diagUrl: "RIPS.html",
             observed: [
-                { time: "2026-08-20 12Z", lat: 12.8, lon: 150.2, wind: 40, mslp: 996, type: "TS" },
-                { time: "2026-08-20 18Z", lat: 13.7, lon: 149.7, wind: 50, mslp: 988, type: "STS" },
-                { time: "2026-08-21 00Z", lat: 14.2, lon: 149.3, wind: 55, mslp: 985, type: "STS" },
-                { time: "2026-08-21 06Z", lat: 14.9, lon: 148.7, wind: 60, mslp: 980, type: "STS" },
-                { time: "2026-08-21 12Z", lat: 15.9, lon: 148.3, wind: 65, mslp: 975, type: "C1" },
-                { time: "2026-08-21 18Z", lat: 16.9, lon: 147.8, wind: 75, mslp: 965, type: "C1" },
-                { time: "2026-08-22 00Z", lat: 18.0, lon: 146.8, wind: 85, mslp: 958, type: "C2" },
-                { time: "2026-08-22 06Z", lat: 18.5, lon: 146.1, wind: 90, mslp: 955, type: "C2" },
-                { time: "2026-08-22 12Z", lat: 19.6, lon: 145.2, wind: 105, mslp: 948, type: "C3" },
-                { time: "2026-08-22 18Z", lat: 20.4, lon: 143.9, wind: 110, mslp: 945, type: "C3" },
-                { time: "2026-08-23 00Z", lat: 21.0, lon: 142.5, wind: 110, mslp: 945, type: "C3" },
-                { time: "2026-08-23 06Z", lat: 21.9, lon: 141.1, wind: 110, mslp: 945, type: "C3" },
-                { time: "2026-08-23 12Z", lat: 22.6, lon: 139.6, wind: 110, mslp: 945, type: "C3" },
-                { time: "2026-08-23 18Z", lat: 23.3, lon: 137.9, wind: 110, mslp: 945, type: "C3" },
-                { time: "2026-08-24 00Z", lat: 24.1, lon: 135.6, wind: 110, mslp: 945, type: "C3" },
-                { time: "2026-08-24 06Z", lat: 24.5, lon: 134.9, wind: 110, mslp: 945, type: "C3" },
-                { time: "2026-08-24 12Z", lat: 24.9, lon: 133.5, wind: 100, mslp: 952, type: "C3" },
-                { time: "2026-08-24 18Z", lat: 25.5, lon: 132.2, wind: 100, mslp: 952, type: "C3" },
-                { time: "2026-08-25 00Z", lat: 26.1, lon: 131.2, wind: 90, mslp: 955, type: "C2" },
-                { time: "2026-08-25 06Z", lat: 26.8, lon: 130.1, wind: 90, mslp: 955, type: "C2" },
-                { time: "2026-08-25 12Z", lat: 27.1, lon: 129.1, wind: 85, mslp: 955, type: "C2" },
-                { time: "2026-08-25 18Z", lat: 27.5, lon: 128.1, wind: 85, mslp: 955, type: "C2" },
-                { time: "2026-08-26 00Z", lat: 27.9, lon: 127.2, wind: 85, mslp: 955, type: "C2" },
-                { time: "2026-08-26 06Z", lat: 28.4, lon: 126.6, wind: 90, mslp: 952, type: "C2" },
-                { time: "2026-08-26 12Z", lat: 28.7, lon: 125.7, wind: 90, mslp: 952, type: "C2" },
-                { time: "2026-08-26 18Z", lat: 28.6, lon: 125.3, wind: 90, mslp: 952, type: "C2" },
-                { time: "2026-08-27 00Z", lat: 28.6, lon: 124.9, wind: 90, mslp: 952, type: "C2" },
-                { time: "2026-08-27 06Z", lat: 28.5, lon: 124.2, wind: 85, mslp: 955, type: "C2" },
-                { time: "2026-08-27 12Z", lat: 28.1, lon: 123.5, wind: 80, mslp: 960, type: "C1" },
-                { time: "2026-08-27 18Z", lat: 28.1, lon: 122.6, wind: 80, mslp: 965, type: "C1"},
-                { time: "2026-08-28 00Z", lat: 28.1, lon: 121.3, wind: 75, mslp: 968, type:"C1"},
-                { time: "2026-08-28 06Z", lat: 27.8, lon: 120.4, wind: 55, mslp: 982, type:"STS"},
-                { time: "2026-08-28 12Z", lat: 27.3, lon: 118.4, wind: 40, mslp: 992, type:"TS"},
-                { time: "2026-08-28 18Z", lat: 26.9, lon: 117.1, wind: 30, mslp: 996, type:"TD"},
-                { time: "2026-08-29 00Z", lat: 27, lon:115.7, wind:30, mslp:998, type:"TD"},
-                { time: "2026-08-29 06Z", lat: 26.8,lon:115.1, wind:30, mslp:998,type:"TD"},
-                { time: "2026-08-29 12Z", lat: 26.5, lon:113.9, wind:30, mslp:998,type: "TD"},
-                { time: "2026-08-29 18Z", lat: 25.8, lon:112.8, wind:30, mslp:998,type:"TD"},
-                { time: "2026-08-30 00Z", lat: 24.4, lon:111.8, wind:25, mslp:1000, type:"TD"},
-                { time: "2026-08-30 06Z", lat: 23.4, lon:111.3, wind:20, mslp:1002,type:"DB"},
-                { time: "2026-08-30 12Z", lat: 22.2, lon:111.2, wind:20, mslp:1002,type:"DB"},
-                { time: "2026-08-30 18Z", lat: 20.3, lon:110.8, wind:20, mslp:1002,type:"DB"},
-                { time: "2026-08-31 00Z", lat: 19.8, lon:110.5, wind:20, mslp:1000,type:"DB"},
-                { time: "2026-08-31 06Z", lat: 19.3, lon:110.3, wind:25, mslp:998,type:"TD"},
-                { time: "2026-08-31 09Z", lat: 18.9, lon:110.6, wind:30, mslp:994, type:"TD"},
-                { time: "2026-08-31 12Z", lat: 18.9, lon:111.3, wind:30, mslp:994, type:"TD"},
-                { time: "2026-08-31 18Z", lat: 19.1, lon:112.4, wind:30, mslp:994,type:"TD"},
-                { time: "2026-08-31 21Z", lat: 19.3, lon:112.8, wind:30, mslp:994,type:"TD"},
-                { time: "2026-09-01 00Z", lat: 19.4, lon:113.1, wind:30, mslp:994,type:"TD"},
-                { time: "2026-09-01 03Z", lat: 19.8, lon:113.9, wind:30, mslp:992,type:"TD"},
-                { time: "2026-09-01 06Z", lat: 20, lon:114, wind:35, mslp:990, type:"TS"},
-                { time: "2026-09-01 09Z", lat: 20.2, lon:115.1, wind:35, mslp: 990,type:"TS"},
-                { time: "2026-09-01 12Z", lat: 20.5, lon: 115.5, wind:35, mslp:990,type:"TS"},
-                { time: "2026-09-01 15Z", lat: 20.9, lon: 115.9, wind: 40, mslp:992,type:"TS"},
-                { time: "2026-09-01 18Z", lat: 21.2, lon:116.4, wind:40, mslp:992,type:"TS"},
-                { time: "2026-09-01 21Z", lat: 21.6, lon:116.8,wind: 40,mslp:992,type:"TS"},                                                                                                                                                                                      
-                { time: "2026-09-02 00Z", lat: 21.9, lon:117, wind: 45,mslp: 990,type:"TS"},
-                { time: "2026-09-02 06Z", lat: 22.1, lon:117.4, wind:45, mslp:990,type:"TS"},
-                { time: "2026-09-02 12Z", lat:22.6, lon:117.6, wind:50,mslp:988,type:"STS"},
-                { time: "2026-09-02 18Z", lat:23.2, lon:118.3, wind:50,mslp:988,type:"STS"},
-                { time: "2026-09-02 21Z", lat:23.7, lon:117.8, wind:50,mslp:988,type:"STS"},
-                { time: "2026-09-03 00Z",}
+                { time: "2026-10-13 18Z", lat: 10.1, lon: 161.1, wind: 25, mslp: 1000, type: "TD" },              
+                { time: "2026-10-14 00Z", lat: 9, lon:160.5, wind: 25, mslp: 1000, type:"TD"}
             ],
             forecast: [
-                { hour: 0, lat: 23.7, lon: 117.8, wind: 50,mslp: 988, type: "STS" },
-                { hour: 24, lat: 23.1, lon: 113.6, wind: 25, mslp: 1002, type: "TD"}
+                { hour: 0, lat: 9, lon: 160.5, wind: 25,mslp: 1000, type: "TD" },
+                { hour: 24, lat: 10.3, lon: 159.3, wind: 40, mslp: 996, type: "TS"},
+                { hour: 48, lat: 11.3, lon: 154.4, wind: 60, mslp: 980, type: "STS" },
+                { hour: 72, lat: 12.2, lon: 149.3, wind: 85, mslp: 960, type: "Cat.2" },
+                { hour: 96, lat: 13.8, lon: 143.5, wind: 125, mslp: 920, type: "Cat.4" },
+                { hour: 120, lat: 15.1, lon: 139.4, wind: 150, mslp: 900, type: "Cat.5" }
             ]
-        }
-    };
-    <script-->
-    <script>
-    const systemsData = {
+        },
         "28W": {
             name: "28W",
             diagUrl: "RIPS.html",
@@ -487,7 +428,7 @@
     }
 
     populateDropdown();
-    switchSystem("28W");
+    switchSystem("96W");
 </script>
 
 </body>
