@@ -238,6 +238,22 @@
 <div id="map"></div>
 
 
+    <!--script>
+        "28W": {
+            name: "28W",
+            diagUrl: "RIPS.html",
+            observed: [
+                { time: "2026-10-11 00Z", lat: 14.2, lon: 151.4, wind: 20, mslp: 1004, type: "DB" }
+            ],
+                forecast: [
+                 { hour: 0, lat: 14.2, lon: 151.4, wind: 20, mslp: 1004, type: "DB" },
+                 { hour: 24, lat: 17.4, lon: 148.9, wind: 25, mslp: 1002, type: "TD"},
+                 { hour: 48, lat: 19.6, lon:145.5, wind: 30, mslp:1000, type:"TD"},
+                 { hour: 72, lat:21.7, lon:141.5,wind:20, mslp:1004, type:"DB"}
+            ]
+    
+        }
+    </script-->
     <script>
     const systemsData= {
         "96W": {
@@ -256,19 +272,6 @@
                 { hour: 120, lat: 15.1, lon: 139.4, wind: 150, mslp: 900, type: "Cat.5" }
             ]
         },
-        "28W": {
-            name: "28W",
-            diagUrl: "RIPS.html",
-            observed: [
-                { time: "2026-10-11 00Z", lat: 14.2, lon: 151.4, wind: 20, mslp: 1004, type: "DB" }
-            ],
-                forecast: [
-                 { hour: 0, lat: 14.2, lon: 151.4, wind: 20, mslp: 1004, type: "DB" },
-                 { hour: 24, lat: 17.4, lon: 148.9, wind: 25, mslp: 1002, type: "TD"},
-                 { hour: 48, lat: 19.6, lon:145.5, wind: 30, mslp:1000, type:"TD"},
-                 { hour: 72, lat:21.7, lon:141.5,wind:20, mslp:1004, type:"DB"}
-            ]
-        }
     };
 
     let currentMapLayers = L.layerGroup();
