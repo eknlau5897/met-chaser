@@ -204,7 +204,7 @@
 
                 ax_table.set_title("Rapid Intensification Probabilities (%)", fontsize=11, fontweight='bold', pad=12)
             else:
-                ax_table.text(0.5, 0.5, "Unable to parse probability columns from RIPS.txt", ha='center', va='center', fontsize=11, fontweight='bold', color='red')
+                ax_table.text(0.5, 0.5, "Unable to parse probability columns from RIPA.txt", ha='center', va='center', fontsize=11, fontweight='bold', color='red')
 
             # RIGHT SIDE: Environmental Predictors Grid
             for i, pred in enumerate(predictors[:6]):
@@ -232,7 +232,7 @@
                 if row == 2:
                     ax.set_xlabel("Forecast Lead Hour", fontweight='bold', fontsize=8.5)
 
-            fig.suptitle(f"RAMMB RIPS Summary — {title_filename}", fontsize=13, fontweight='bold', y=0.98)
+            fig.suptitle(f"RAMMB RIPA Summary — {title_filename}", fontsize=13, fontweight='bold', y=0.98)
 
             legend_elements = [
                 Line2D([0], [0], marker='o', color='w', label='Favorable (F)', markerfacecolor='#2ca02c', markersize=8),
