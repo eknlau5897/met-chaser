@@ -246,25 +246,25 @@
 
         async def main():
             try:
-                set_status("Loading RIPS.txt file...")
+                set_status("Loading RIPA.txt file...")
                 
                 cache_buster = f"?t={int(time.time())}"
                 raw_text = ""
-                filename = "RIPS.txt"
+                filename = "RIPA.txt"
 
                 try:
-                    resp_txt = await pyfetch(f"RIPS.txt{cache_buster}")
+                    resp_txt = await pyfetch(f"RIPA.txt{cache_buster}")
                     if resp_txt.ok:
                         raw_text = await resp_txt.string()
                     else:
-                        resp_txt_data = await pyfetch(f"data/RIPS.txt{cache_buster}")
+                        resp_txt_data = await pyfetch(f"data/RIPA.txt{cache_buster}")
                         if resp_txt_data.ok:
                             raw_text = await resp_txt_data.string()
                 except Exception:
                     pass
 
                 if not raw_text or len(raw_text.strip()) == 0:
-                    set_status("Error: Could not read 'RIPS.txt'. Place RIPS.txt in the exact same directory as index.html.")
+                    set_status("Error: Could not read 'RIPA.txt'. Place RIPA.txt in the exact same directory as index.html.")
                     return
 
                 prob_table, threshold_headers, df_cond = parse_rips_data(raw_text)
