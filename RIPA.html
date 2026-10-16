@@ -1,70 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RAMMB RIPA Auto-Fetch Summary</title>
-<!-- PyScript CSS & JavaScript -->
-<link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
-<script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
-<style>
-body {
-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-background-color: #f8f9fa;
-margin: 0;
-padding: 20px;
-display: flex;
-flex-direction: column;
-align-items: center;
-}
-h1 {
-color: #1a252f;
-margin-bottom: 5px;
-}
-.subtitle {
-color: #7f8c8d;
-margin-bottom: 15px;
-font-size: 14px;
-}
-#status-box {
-font-size: 13px;
-color: #2c3e50;
-background: #eef2f5;
-padding: 8px 16px;
-border-radius: 4px;
-margin-bottom: 15px;
-font-weight: 600;
-}
-#plot-container {
-width: 100%;
-max-width: 1400px;
-background: #ffffff;
-padding: 15px;
-border-radius: 8px;
-box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-display: flex;
-justify-content: center;
-}
-</style>
 
-<!-- PyScript Configuration -->
-<py-config>
-packages = ["pandas", "matplotlib"]
-</py-config>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAMMB RIPA Auto-Fetch Summary</title>
+    <!-- PyScript CSS & JavaScript -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+    <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
 
-<h1>RAMMB RIPA Diagnostic Summary</h1>
-<p class="subtitle">Automated Real-Time RAMMB/CIRA Product Retrieval & Visualization</p>
+    h1 {
+      color: #1a252f;
+      margin-bottom: 5px;
+    }
 
-<div id="status-box">Status: Initializing environment...</div>
+    .subtitle {
+      color: #7f8c8d;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
 
-<!-- Plot Container -->
-<div id="plot-container"></div>
+    #status-box {
+      font-size: 13px;
+      color: #2c3e50;
+      background: #eef2f5;
+      padding: 8px 16px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
 
-<!-- PyScript Processing & Plotting -->
-<script type="py">
-import re
+    #plot-container {
+      width: 100%;
+      max-width: 1400px;
+      background: #ffffff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      display: flex;
+      justify-content: center;
+    }
+    </style>
+
+    <!-- PyScript Configuration -->
+    <py-config>
+      packages = ["pandas", "matplotlib"]
+    </py-config>
+  </head>
+
+  <body>
+
+    <h1>RAMMB RIPA Diagnostic Summary</h1>
+    <p class="subtitle">Automated Real-Time RAMMB/CIRA Product Retrieval & Visualization</p>
+
+    <div id="status-box">Status: Initializing environment...</div>
+
+    <!-- Plot Container -->
+    <div id="plot-container"></div>
+
+    <!-- PyScript Processing & Plotting -->
+    <script type="py">
+      import re
 import asyncio
 import time
 import pandas as pd
@@ -264,5 +270,6 @@ set_status(f"Error rendering plot: {str(e)}")
 
 asyncio.ensure_future(main())
 </script>
-</body>
+  </body>
+
 </html>
