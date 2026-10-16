@@ -1,277 +1,268 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAMMB RIPS Auto-Fetch Summary</title>
-    
-    <!-- PyScript CSS & JavaScript -->
-    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
-    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
-    
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        h1 {
-            color: #1a252f;
-            margin-bottom: 5px;
-        }
-        .subtitle {
-            color: #7f8c8d;
-            margin-bottom: 15px;
-            font-size: 14px;
-        }
-        #status-box {
-            font-size: 13px;
-            color: #2c3e50;
-            background: #eef2f5;
-            padding: 8px 16px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            font-weight: 600;
-        }
-        #plot-container {
-            width: 100%;
-            max-width: 1400px;
-            background: #ffffff;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            display: flex;
-            justify-content: center;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAMMB RIPA Auto-Fetch Summary</title>
+<!-- PyScript CSS & JavaScript -->
+<link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+<script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+<style>
+body {
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+background-color: #f8f9fa;
+margin: 0;
+padding: 20px;
+display: flex;
+flex-direction: column;
+align-items: center;
+}
+h1 {
+color: #1a252f;
+margin-bottom: 5px;
+}
+.subtitle {
+color: #7f8c8d;
+margin-bottom: 15px;
+font-size: 14px;
+}
+#status-box {
+font-size: 13px;
+color: #2c3e50;
+background: #eef2f5;
+padding: 8px 16px;
+border-radius: 4px;
+margin-bottom: 15px;
+font-weight: 600;
+}
+#plot-container {
+width: 100%;
+max-width: 1400px;
+background: #ffffff;
+padding: 15px;
+border-radius: 8px;
+box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+display: flex;
+justify-content: center;
+}
+</style>
 
-    <!-- PyScript Configuration -->
-    <py-config>
-        packages = ["pandas", "matplotlib"]
-    </py-config>
+<!-- PyScript Configuration -->
+<py-config>
+packages = ["pandas", "matplotlib"]
+</py-config>
 </head>
 <body>
 
-    <h1>RAMMB RIPS Diagnostic Summary</h1>
-    <p class="subtitle">Automated Real-Time RAMMB/CIRA Product Retrieval & Visualization</p>
+<h1>RAMMB RIPS Diagnostic Summary</h1>
+<p class="subtitle">Automated Real-Time RAMMB/CIRA Product Retrieval & Visualization</p>
 
-    <div id="status-box">Status: Initializing environment...</div>
+<div id="status-box">Status: Initializing environment...</div>
 
-    <!-- Plot Container -->
-    <div id="plot-container"></div>
+<!-- Plot Container -->
+<div id="plot-container"></div>
 
-    <!-- PyScript Processing & Plotting -->
-   <!-- PyScript Processing & Plotting -->
-    <script type="py">
-        import re
-        import asyncio
-        import time
-        import pandas as pd
-        import matplotlib.pyplot as plt
-        from matplotlib.lines import Line2D
-        from pyodide.http import pyfetch
-        from pyscript import display, document
+<!-- PyScript Processing & Plotting -->
+<script type="py">
+import re
+import asyncio
+import time
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from pyodide.http import pyfetch
+from pyscript import display, document
 
-        def set_status(msg):
-            document.getElementById("status-box").innerText = f"Status: {msg}"
+def set_status(msg):
+document.getElementById("status-box").innerText = f"Status: {msg}"
 
-        def parse_rips_data(raw_text):
-            lines = raw_text.splitlines()
-            cond_data = []
-            hours = [6, 12, 18, 24, 36, 48, 60, 72]
-            
-            # --- 1. PARSE ENVIRONMENTAL PREDICTORS ---
-            for line in lines:
-                line_str = line.strip()
-                if not line_str:
-                    continue
-                
-                ratings = re.findall(r'\b[FNU]\b', line_str)
-                if len(ratings) == 8:
-                    num_matches = list(re.finditer(r'[-+]?\d*\.\d+|\d+', line_str))
-                    if len(num_matches) >= 8:
-                        val_matches = num_matches[-8:]
-                        vals = [float(m.group()) for m in val_matches]
-                        
-                        first_val_idx = val_matches[0].start()
-                        predictor_name = re.sub(r'\s+', ' ', line_str[:first_val_idx].strip())
-                        
-                        for hr, val, rating in zip(hours, vals, ratings):
-                            cond_data.append({
-                                'ForecastHour': hr,
-                                'Predictor': predictor_name,
-                                'Value': val,
-                                'Rating': rating
-                            })
+def parse_rips_data(raw_text):
+lines = raw_text.splitlines()
+cond_data = []
+hours = [6, 12, 18, 24, 36, 48, 60, 72]
+# --- 1. PARSE ENVIRONMENTAL PREDICTORS ---
+for line in lines:
+line_str = line.strip()
+if not line_str:
+continue
+ratings = re.findall(r'\b[FNU]\b', line_str)
+if len(ratings) == 8:
+num_matches = list(re.finditer(r'[-+]?\d*\.\d+|\d+', line_str))
+if len(num_matches) >= 8:
+val_matches = num_matches[-8:]
+vals = [float(m.group()) for m in val_matches]
+first_val_idx = val_matches[0].start()
+predictor_name = re.sub(r'\s+', ' ', line_str[:first_val_idx].strip())
+for hr, val, rating in zip(hours, vals, ratings):
+cond_data.append({
+'ForecastHour': hr,
+'Predictor': predictor_name,
+'Value': val,
+'Rating': rating
+})
 
-            df_cond = pd.DataFrame(cond_data)
+df_cond = pd.DataFrame(cond_data)
 
-            # --- 2. MULTI-FORMAT RIPS PROBABILITY PARSER ---
-            lda_vals, lre_vals, cons_vals = [], [], []
-            thresholds = []
+# --- 2. MULTI-FORMAT RIPS PROBABILITY PARSER ---
+lda_vals, lre_vals, cons_vals = [], [], []
+thresholds = []
 
-            for line in lines:
-                line_str = line.strip()
-                thresh_match = re.match(r'^(\d+\s*kt\s*/\s*\d+\s*[ha-z]*)', line_str, re.IGNORECASE)
-                if thresh_match:
-                    t_label = thresh_match.group(1).replace(" ", "")
-                    pcts = re.findall(r'(\d+(?:\.\d+)?)\s*%', line_str)
-                    if len(pcts) >= 3:
-                        thresholds.append(t_label)
-                        lda_vals.append(f"{float(pcts[0]):.1f}%")
-                        lre_vals.append(f"{float(pcts[1]):.1f}%")
-                        cons_vals.append(f"{float(pcts[2]):.1f}%")
+# Format Detection A: Vertical threshold rows (e.g., "25kt / 24h 1.8% 9.9% 5.9%")
+for line in lines:
+line_str = line.strip()
+# Find lines starting with a speed/time threshold
+thresh_match = re.match(r'^(\d+\s*kt\s*/\s*\d+\s*[ha-z]*)', line_str, re.IGNORECASE)
+if thresh_match:
+t_label = thresh_match.group(1).replace(" ", "")
+# Extract percentages on this line
+pcts = re.findall(r'(\d+(?:\.\d+)?)\s*%', line_str)
+if len(pcts) >= 3:
+thresholds.append(t_label)
+lda_vals.append(f"{float(pcts[0]):.1f}%")
+lre_vals.append(f"{float(pcts[1]):.1f}%")
+cons_vals.append(f"{float(pcts[2]):.1f}%")
 
-            if not lda_vals:
-                for line in lines:
-                    matches = re.findall(r'(\d+\s*kt\s*/\s*\d+\s*[ha-z]*)', line, re.IGNORECASE)
-                    if len(matches) >= 3 and not thresholds:
-                        thresholds = [m.replace(" ", "") for m in matches]
+# Format Detection B: Horizontal method rows (Fallback)
+if not lda_vals:
+# Capture inline header row if present
+for line in lines:
+matches = re.findall(r'(\d+\s*kt\s*/\s*\d+\s*[ha-z]*)', line, re.IGNORECASE)
+if len(matches) >= 3 and not thresholds:
+thresholds = [m.replace(" ", "") for m in matches]
 
-                if not thresholds:
-                    thresholds = ["20kt/12h", "25kt/24h", "30kt/24h", "35kt/24h", "40kt/24h", "45kt/36h"]
+if not thresholds:
+thresholds = ["20kt/12h", "25kt/24h", "30kt/24h", "35kt/24h", "40kt/24h", "45kt/36h"]
 
-                for line in lines:
-                    line_str = line.strip()
-                    if re.search(r'\b[FNU]\b', line_str):
-                        continue
+for line in lines:
+line_str = line.strip()
+if re.search(r'\b[FNU]\b', line_str):
+continue
 
-                    pcts = [f"{float(n):.1f}%" for n in re.findall(r'(\d+(?:\.\d+)?)\s*%', line_str)]
-                    if len(pcts) >= len(thresholds):
-                        if re.search(r'\bLDA\b', line_str, re.IGNORECASE):
-                            lda_vals = pcts[:len(thresholds)]
-                        elif re.search(r'\bLRE\b', line_str, re.IGNORECASE):
-                            lre_vals = pcts[:len(thresholds)]
-                        elif re.search(r'\b(CONSENSUS|CONS)\b', line_str, re.IGNORECASE):
-                            cons_vals = pcts[:len(thresholds)]
+pcts = [f"{float(n):.1f}%" for n in re.findall(r'(\d+(?:\.\d+)?)\s*%', line_str)]
+if len(pcts) >= len(thresholds):
+if re.search(r'\bLDA\b', line_str, re.IGNORECASE):
+lda_vals = pcts[:len(thresholds)]
+elif re.search(r'\bLRE\b', line_str, re.IGNORECASE):
+lre_vals = pcts[:len(thresholds)]
+elif re.search(r'\b(CONSENSUS|CONS)\b', line_str, re.IGNORECASE):
+cons_vals = pcts[:len(thresholds)]
 
-            prob_table = {}
-            if lda_vals: prob_table['LDA-Method'] = lda_vals
-            if lre_vals: prob_table['LRE-Method'] = lre_vals
-            if cons_vals: prob_table['CONSENSUS'] = cons_vals
+prob_table = {}
+if lda_vals: prob_table['LDA-Method'] = lda_vals
+if lre_vals: prob_table['LRE-Method'] = lre_vals
+if cons_vals: prob_table['CONSENSUS'] = cons_vals
 
-            return prob_table, thresholds, df_cond
+return prob_table, thresholds, df_cond
 
-        def build_ripa_side_by_side_fig(prob_table, threshold_headers, df_cond, title_filename):
-            color_map = {'F': '#2ca02c', 'N': '#7f7f7f', 'U': '#d62728'}
-            predictors = df_cond['Predictor'].unique() if not df_cond.empty else []
-            
-            fig = plt.figure(figsize=(16, 9))
-            gs = fig.add_gridspec(3, 4, hspace=0.48, wspace=0.35)
-            
-            # LEFT SIDE: Render Probabilities Table
-            ax_table = fig.add_subplot(gs[:, 0:2])
-            ax_table.axis('off')
+def build_ripa_side_by_side_fig(prob_table, threshold_headers, df_cond, title_filename):
+color_map = {'F': '#2ca02c', 'N': '#7f7f7f', 'U': '#d62728'}
+predictors = df_cond['Predictor'].unique() if not df_cond.empty else []
+fig = plt.figure(figsize=(16, 9))
+gs = fig.add_gridspec(3, 4, hspace=0.48, wspace=0.35)
+# LEFT SIDE: Render Probabilities Table
+ax_table = fig.add_subplot(gs[:, 0:2])
+ax_table.axis('off')
 
-            methods_order = ['LDA-Method', 'LRE-Method', 'CONSENSUS']
-            cell_text = []
+methods_order = ['LDA-Method', 'LRE-Method', 'CONSENSUS']
+cell_text = []
 
-            for m in methods_order:
-                if m in prob_table:
-                    cell_text.append([m] + prob_table[m])
+for m in methods_order:
+if m in prob_table:
+cell_text.append([m] + prob_table[m])
 
-            if cell_text and threshold_headers:
-                col_labels = ["Method"] + threshold_headers
-                table = ax_table.table(
-                    cellText=cell_text,
-                    colLabels=col_labels,
-                    cellLoc='center',
-                    loc='center'
-                )
+if cell_text and threshold_headers:
+col_labels = ["Method"] + threshold_headers
+table = ax_table.table(
+cellText=cell_text,
+colLabels=col_labels,
+cellLoc='center',
+loc='center'
+)
 
-                table.auto_set_font_size(False)
-                table.set_fontsize(8.5)
-                table.scale(1.0, 1.8)
+table.auto_set_font_size(False)
+table.set_fontsize(8.5)
+table.scale(1.0, 1.8)
 
-                for (r, c), cell in table.get_celld().items():
-                    if r == 0:
-                        cell.set_facecolor('#2b5c8f')
-                        cell.get_text().set_color('white')
-                        cell.get_text().set_weight('bold')
-                    elif r == len(cell_text):  
-                        cell.set_facecolor('#e8f4f8')
-                        cell.get_text().set_weight('bold')
-                    else:
-                        cell.set_facecolor('#ffffff')
+for (r, c), cell in table.get_celld().items():
+if r == 0:
+cell.set_facecolor('#2b5c8f')
+cell.get_text().set_color('white')
+cell.get_text().set_weight('bold')
+elif r == len(cell_text): # Consensus Row Highlight
+cell.set_facecolor('#e8f4f8')
+cell.get_text().set_weight('bold')
+else:
+cell.set_facecolor('#ffffff')
 
-                ax_table.set_title("Rapid Intensification Probabilities (%)", fontsize=11, fontweight='bold', pad=12)
-            else:
-                ax_table.text(0.5, 0.5, "Unable to parse probability columns", ha='center', va='center', fontsize=11, fontweight='bold', color='red')
+ax_table.set_title("Rapid Intensification Probabilities (%)", fontsize=11, fontweight='bold', pad=12)
+else:
+ax_table.text(0.5, 0.5, "Unable to parse probability columns from RIPA.txt", ha='center', va='center', fontsize=11, fontweight='bold', color='red')
 
-            # RIGHT SIDE: Environmental Predictors Grid
-            for i, pred in enumerate(predictors[:6]):
-                row = i // 2
-                col = 2 + (i % 2)
-                
-                ax = fig.add_subplot(gs[row, col])
-                sub = df_cond[df_cond['Predictor'] == pred].sort_values('ForecastHour')
-                
-                ax.plot(sub['ForecastHour'], sub['Value'], color='#555555', linestyle='--', alpha=0.7, zorder=1)
-                
-                y_min, y_max = sub['Value'].min(), sub['Value'].max()
-                y_padding = (y_max - y_min) * 0.22 if y_max != y_min else 2.0
-                ax.set_ylim(y_min - y_padding, y_max + y_padding)
+# RIGHT SIDE: Environmental Predictors Grid
+for i, pred in enumerate(predictors[:6]):
+row = i // 2
+col = 2 + (i % 2)
+ax = fig.add_subplot(gs[row, col])
+sub = df_cond[df_cond['Predictor'] == pred].sort_values('ForecastHour')
+ax.plot(sub['ForecastHour'], sub['Value'], color='#555555', linestyle='--', alpha=0.7, zorder=1)
+y_min, y_max = sub['Value'].min(), sub['Value'].max()
+y_padding = (y_max - y_min) * 0.22 if y_max != y_min else 2.0
+ax.set_ylim(y_min - y_padding, y_max + y_padding)
 
-                for _, r in sub.iterrows():
-                    c = color_map.get(r['Rating'], 'blue')
-                    ax.scatter(r['ForecastHour'], r['Value'], color=c, s=45, zorder=2)
-                    ax.annotate(r['Rating'], (r['ForecastHour'], r['Value']), 
-                                textcoords="offset points", xytext=(0, 5), ha='center', va='bottom',
-                                fontsize=7.5, fontweight='bold', color=c)
+for _, r in sub.iterrows():
+c = color_map.get(r['Rating'], 'blue')
+ax.scatter(r['ForecastHour'], r['Value'], color=c, s=45, zorder=2)
+ax.annotate(r['Rating'], (r['ForecastHour'], r['Value']),
+textcoords="offset points", xytext=(0, 5), ha='center', va='bottom',
+fontsize=7.5, fontweight='bold', color=c)
 
-                ax.set_title(pred, fontsize=9.5, fontweight='bold')
-                ax.grid(True, linestyle=':', alpha=0.6)
-                if row == 2:
-                    ax.set_xlabel("Forecast Lead Hour", fontweight='bold', fontsize=8.5)
+ax.set_title(pred, fontsize=9.5, fontweight='bold')
+ax.grid(True, linestyle=':', alpha=0.6)
+if row == 2:
+ax.set_xlabel("Forecast Lead Hour", fontweight='bold', fontsize=8.5)
 
-            fig.suptitle(f"RAMMB RIPA Summary — {title_filename}", fontsize=13, fontweight='bold', y=0.98)
+fig.suptitle(f"RAMMB RIPA Summary — {title_filename}", fontsize=13, fontweight='bold', y=0.98)
 
-            legend_elements = [
-                Line2D([0], [0], marker='o', color='w', label='Favorable (F)', markerfacecolor='#2ca02c', markersize=8),
-                Line2D([0], [0], marker='o', color='w', label='Neutral (N)', markerfacecolor='#7f7f7f', markersize=8),
-                Line2D([0], [0], marker='o', color='w', label='Unfavorable (U)', markerfacecolor='#d62728', markersize=8)
-            ]
-            fig.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(0.98, 0.97), fontsize=8.5)
-            fig.subplots_adjust(top=0.90, bottom=0.08, left=0.05, right=0.95)
-            return fig
+legend_elements = [
+Line2D([0], [0], marker='o', color='w', label='Favorable (F)', markerfacecolor='#2ca02c', markersize=8),
+Line2D([0], [0], marker='o', color='w', label='Neutral (N)', markerfacecolor='#7f7f7f', markersize=8),
+Line2D([0], [0], marker='o', color='w', label='Unfavorable (U)', markerfacecolor='#d62728', markersize=8)
+]
+fig.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(0.98, 0.97), fontsize=8.5)
+fig.subplots_adjust(top=0.90, bottom=0.08, left=0.05, right=0.95)
+return fig
 
-        async def main():
-            try:
-                set_status("Fetching live data via CORS proxy...")
-                
-                # Replace this URL with the exact target storm / product URL you want to fetch
-                target_url = "https://rammb-data.cira.colostate.edu/tc_realtime/products/storms/2026wp29/ripastbl/2026wp29_ripastbl_202610151800.txt"
-                
-                # Route through a public CORS proxy to bypass browser restrictions
-                proxy_url = f"https://api.allorigins.win/raw?url={target_url}"
-                cache_buster = f"&t={int(time.time())}"
-                
-                raw_text = ""
-                try:
-                    resp = await pyfetch(proxy_url + cache_buster)
-                    if resp.ok:
-                        raw_text = await resp.string()
-                except Exception as e:
-                    print(f"Proxy fetch error: {e}")
+async def main():
+try:
+set_status("Loading RIPA.txt file...")
+cache_buster = f"?t={int(time.time())}"
+raw_text = ""
+filename = "RIPA.txt"
 
-                if not raw_text or len(raw_text.strip()) == 0:
-                    set_status("Error: Failed to fetch live RIPA.txt through proxy.")
-                    return
+try:
+resp_txt = await pyfetch(f"RIPA.txt{cache_buster}")
+if resp_txt.ok:
+raw_text = await resp_txt.string()
+else:
+resp_txt_data = await pyfetch(f"data/RIPA.txt{cache_buster}")
+if resp_txt_data.ok:
+raw_text = await resp_txt_data.string()
+except Exception:
+pass
 
-                prob_table, threshold_headers, df_cond = parse_rips_data(raw_text)
-                fig = build_ripa_side_by_side_fig(prob_table, threshold_headers, df_cond, title_filename="Live RAMMB RIPA")
+if not raw_text or len(raw_text.strip()) == 0:
+set_status("Error: Could not read 'RIPA.txt'. Place RIPA.txt in the exact same directory as index.html.")
+return
 
-                set_status("Successfully rendered live product!")
-                display(fig, target="plot-container")
-                
-            except Exception as e:
-                set_status(f"Error rendering plot: {str(e)}")
+prob_table, threshold_headers, df_cond = parse_rips_data(raw_text)
+fig = build_ripa_side_by_side_fig(prob_table, threshold_headers, df_cond, title_filename=filename)
 
-        asyncio.ensure_future(main())
-    </script>
+set_status(f"Successfully rendered product from {filename}")
+display(fig, target="plot-container")
+except Exception as e:
+set_status(f"Error rendering plot: {str(e)}")
+
+asyncio.ensure_future(main())
+</script>
 </body>
 </html>
