@@ -1,9 +1,12 @@
 #!/bin/bash
 
 # Configuration
-STORM_ID="2026wp17"
+# Automatically get the directory where the script is located (critical for Cron)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+STORM_ID="2026wp29"
 DIR_URL="https://rammb-data.cira.colostate.edu/tc_realtime/products/storms/${STORM_ID}/ripastbl/"
-INTERVAL=21600 # Check every 6 hours
 
 TARGET_DATA_FILE="RIPA.txt"
 TARGET_NAME_FILE="data/latest_filename.txt"
@@ -23,49 +26,54 @@ get_prior_date_parts() {
     fi
 }
 
-echo "Starting RAMMB RIPA auto-update daemon for ${STORM_ID} (6-hour prior mode)..."
+echo "[$(date -u)] Starting RAMMB RIPA update for ${STORM_ID}..."
 
-while true; do
-    echo "[$(date -u)] Checking RAMMB directory: ${DIR_URL}"
+# 1. Fetch directory listing
+DIR_HTML=$(curl -sL -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "$DIR_URL")
 
-    # 1. Fetch directory listing
-    DIR_HTML=$(curl -sL -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "$DIR_URL")
+# 2. Match all filenames and pick the SECOND TO LAST (6 hours prior to latest)
+LATEST_FILE=$(echo "$DIR_HTML" | grep -oE "${STORM_ID}_ripastbl_[0-9]{12}\.txt" | sort | tail -n 2 | head -n 1)
 
-    # 2. Match all filenames and pick the SECOND TO LAST (6 hours prior to latest)
-    LATEST_FILE=$(echo "$DIR_HTML" | grep -oE "${STORM_ID}_ripastbl_[0-9]{12}\.txt" | sort | tail -n 2 | head -n 1)
+# 3. Fallback: If directory listing fails, calculate the previous 6-hour cycle timestamp manually
+if [ -z "$LATEST_FILE" ]; then
+    echo "[$(date -u)] Directory index restricted. Calculating expected 6-hourly prior cycle URL..."
+    
+    get_prior_date_parts
+    
+    # Clean leading zeros safely for arithmetic calculations
+    HR_NUM=$((10#$PREV_HR))
+    SYNOP_NUM=$(( (HR_NUM / 6) * 6 ))
+    SYNOP_HOUR=$(printf "%02d" $SYNOP_NUM)
+    
+    DATE_STAMP="${PREV_DATE}${SYNOP_HOUR}00"
+    LATEST_FILE="${STORM_ID}_ripastbl_${DATE_STAMP}.txt"
+fi
 
-    # 3. Fallback: If directory listing fails, calculate the previous 6-hour cycle timestamp manually
-    if [ -z "$LATEST_FILE" ]; then
-        echo "[$(date -u)] Directory index restricted. Calculating expected 6-hourly prior cycle URL..."
-        
-        get_prior_date_parts
-        
-        # Clean leading zeros safely for arithmetic calculations
-        HR_NUM=$((10#$PREV_HR))
-        SYNOP_NUM=$(( (HR_NUM / 6) * 6 ))
-        SYNOP_HOUR=$(printf "%02d" $SYNOP_NUM)
-        
-        DATE_STAMP="${PREV_DATE}${SYNOP_HOUR}00"
-        LATEST_FILE="${STORM_ID}_ripastbl_${DATE_STAMP}.txt"
-    fi
+FULL_URL="${DIR_URL}${LATEST_FILE}"
+echo "[$(date -u)] Target prior product URL: ${FULL_URL}"
 
-    FULL_URL="${DIR_URL}${LATEST_FILE}"
-    echo "[$(date -u)] Target prior product URL: ${FULL_URL}"
+# 4. Attempt to fetch product file
+HTTP_STATUS=$(curl -sL -A "Mozilla/5.0" -w "%{http_code}" "$FULL_URL" -o "data/temp_ripa.txt")
 
-    # 4. Attempt to fetch product file
-    HTTP_STATUS=$(curl -sL -A "Mozilla/5.0" -w "%{http_code}" "$FULL_URL" -o "data/temp_ripa.txt")
-
-        # Overwrite destination file
+if [ "$HTTP_STATUS" -eq 200 ] && [ -s "data/temp_ripa.txt" ]; then
+    # Overwrite destination files only if successful
     mv "data/temp_ripa.txt" "$TARGET_DATA_FILE"
     echo "$LATEST_FILE" > "$TARGET_NAME_FILE"
+    
+    echo "[$(date -u)] Successfully fetched ${LATEST_FILE}."
 
-        # 5. Git commit & push if updated
-    git add RIPS.txt
-    git commit -m "Auto-update: Fetched ${LATEST_FILE} for ${STORM_ID} (6-hour prior)"
-    git push origin main
-    echo "[$(date -u)] Successfully fetched and updated ${LATEST_FILE}."
-
-    echo "Sleeping for $((INTERVAL / 60)) minutes..."
-    echo "--------------------------------------------------------"
-    sleep $INTERVAL
-done
+    # 5. Git commit & push if updated
+    # Check if there are actual git changes before committing
+    git add "$TARGET_DATA_FILE" "$TARGET_NAME_FILE"
+    if git diff --cached --quiet; then
+        echo "[$(date -u)] No changes detected in RIPA data. Skipping git commit."
+    else
+        git commit -m "Auto-update: Fetched ${LATEST_FILE} for ${STORM_ID} (6-hour prior)"
+        git push origin main
+        echo "[$(date -u)] Successfully pushed updates to git repository."
+    fi
+else
+    echo "[$(date -u)] Error: Failed to download product (HTTP Status: $HTTP_STATUS)."
+    rm -f "data/temp_ripa.txt"
+    exit 1
+fi
