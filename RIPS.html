@@ -65,6 +65,7 @@
     <div id="plot-container"></div>
 
     <!-- PyScript Processing & Plotting -->
+   <!-- PyScript Processing & Plotting -->
     <script type="py">
         import re
         import asyncio
@@ -113,14 +114,11 @@
             lda_vals, lre_vals, cons_vals = [], [], []
             thresholds = []
 
-            # Format Detection A: Vertical threshold rows (e.g., "25kt / 24h   1.8%   9.9%   5.9%")
             for line in lines:
                 line_str = line.strip()
-                # Find lines starting with a speed/time threshold
                 thresh_match = re.match(r'^(\d+\s*kt\s*/\s*\d+\s*[ha-z]*)', line_str, re.IGNORECASE)
                 if thresh_match:
                     t_label = thresh_match.group(1).replace(" ", "")
-                    # Extract percentages on this line
                     pcts = re.findall(r'(\d+(?:\.\d+)?)\s*%', line_str)
                     if len(pcts) >= 3:
                         thresholds.append(t_label)
@@ -128,9 +126,7 @@
                         lre_vals.append(f"{float(pcts[1]):.1f}%")
                         cons_vals.append(f"{float(pcts[2]):.1f}%")
 
-            # Format Detection B: Horizontal method rows (Fallback)
             if not lda_vals:
-                # Capture inline header row if present
                 for line in lines:
                     matches = re.findall(r'(\d+\s*kt\s*/\s*\d+\s*[ha-z]*)', line, re.IGNORECASE)
                     if len(matches) >= 3 and not thresholds:
@@ -196,7 +192,7 @@
                         cell.set_facecolor('#2b5c8f')
                         cell.get_text().set_color('white')
                         cell.get_text().set_weight('bold')
-                    elif r == len(cell_text):  # Consensus Row Highlight
+                    elif r == len(cell_text):  
                         cell.set_facecolor('#e8f4f8')
                         cell.get_text().set_weight('bold')
                     else:
@@ -204,7 +200,7 @@
 
                 ax_table.set_title("Rapid Intensification Probabilities (%)", fontsize=11, fontweight='bold', pad=12)
             else:
-                ax_table.text(0.5, 0.5, "Unable to parse probability columns from RIPA.txt", ha='center', va='center', fontsize=11, fontweight='bold', color='red')
+                ax_table.text(0.5, 0.5, "Unable to parse probability columns", ha='center', va='center', fontsize=11, fontweight='bold', color='red')
 
             # RIGHT SIDE: Environmental Predictors Grid
             for i, pred in enumerate(predictors[:6]):
@@ -240,37 +236,36 @@
                 Line2D([0], [0], marker='o', color='w', label='Unfavorable (U)', markerfacecolor='#d62728', markersize=8)
             ]
             fig.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(0.98, 0.97), fontsize=8.5)
-            
             fig.subplots_adjust(top=0.90, bottom=0.08, left=0.05, right=0.95)
             return fig
 
         async def main():
             try:
-                set_status("Loading RIPA.txt file...")
+                set_status("Fetching live data via CORS proxy...")
                 
-                cache_buster = f"?t={int(time.time())}"
+                # Replace this URL with the exact target storm / product URL you want to fetch
+                target_url = "https://rammb-data.cira.colostate.edu/tc_realtime/products/storms/2026wp29/ripastbl/2026wp29_ripastbl_202610151800.txt"
+                
+                # Route through a public CORS proxy to bypass browser restrictions
+                proxy_url = f"https://api.allorigins.win/raw?url={target_url}"
+                cache_buster = f"&t={int(time.time())}"
+                
                 raw_text = ""
-                filename = "RIPA.txt"
-
                 try:
-                    resp_txt = await pyfetch(f"RIPA.txt{cache_buster}")
-                    if resp_txt.ok:
-                        raw_text = await resp_txt.string()
-                    else:
-                        resp_txt_data = await pyfetch(f"data/RIPA.txt{cache_buster}")
-                        if resp_txt_data.ok:
-                            raw_text = await resp_txt_data.string()
-                except Exception:
-                    pass
+                    resp = await pyfetch(proxy_url + cache_buster)
+                    if resp.ok:
+                        raw_text = await resp.string()
+                except Exception as e:
+                    print(f"Proxy fetch error: {e}")
 
                 if not raw_text or len(raw_text.strip()) == 0:
-                    set_status("Error: Could not read 'RIPA.txt'. Place RIPA.txt in the exact same directory as index.html.")
+                    set_status("Error: Failed to fetch live RIPA.txt through proxy.")
                     return
 
                 prob_table, threshold_headers, df_cond = parse_rips_data(raw_text)
-                fig = build_ripa_side_by_side_fig(prob_table, threshold_headers, df_cond, title_filename=filename)
+                fig = build_ripa_side_by_side_fig(prob_table, threshold_headers, df_cond, title_filename="Live RAMMB RIPA")
 
-                set_status(f"Successfully rendered product from {filename}")
+                set_status("Successfully rendered live product!")
                 display(fig, target="plot-container")
                 
             except Exception as e:
