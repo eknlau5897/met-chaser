@@ -106,29 +106,6 @@
             border: 1px solid rgba(56, 189, 248, 0.2);
         }
 
-        .diag-link-btn {
-            display: block;
-            width: 100%;
-            margin-top: 12px;
-            box-sizing: border-box;
-            background: linear-gradient(135deg, #0284c7, #0369a1);
-            color: #ffffff;
-            text-align: center;
-            text-decoration: none;
-            padding: 9px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
-        }
-
-        .diag-link-btn:hover {
-            background: linear-gradient(135deg, #0369a1, #075985);
-            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.5);
-            color: #ffffff;
-        }
-
         @media (max-width: 600px) {
             #info-panel {
                 top: 10px;
@@ -274,7 +251,7 @@
                 { time: "2026-10-16 18Z", lat: 11.9, lon:150.2,wind:75, mslp:978,type:"Cat.1"}
             ],
             forecast: [
-                { hour: 0, lat: 11.9, lon: 151.5, wind: 75,mslp: 978, type: "TS" },
+                { hour: 0, lat: 11.9, lon: 150.2, wind: 75,mslp: 978, type: "TS" },
                 { hour: 24, lat: 13.1, lon: 145.3, wind: 110, mslp: 950, type: "Cat.3"},
                 { hour: 48, lat: 14.3, lon: 141.1, wind: 130, mslp: 930, type: "Cat.4" },
                 { hour: 72, lat: 16.2, lon: 132.9, wind: 140, mslp: 920, type: "Cat.5" },
@@ -351,10 +328,6 @@
         // Update Info Panel Title & Link Button
         document.getElementById('storm-title').innerText = "🌀 SYSTEM " + system.name;
         
-        const diagBtn = document.getElementById('diag-btn');
-        diagBtn.href = system.diagUrl;
-        diagBtn.innerText = `📊 Open ${systemKey} Diagnostics ↗`;
-
         // Update Legend Intensity Card Display
         document.getElementById('curr-wind').innerText = `${latestObserved.wind} kt`;
         document.getElementById('curr-mslp').innerText = `${latestObserved.mslp.toFixed(1)} hPa`;
