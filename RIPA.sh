@@ -5,7 +5,7 @@ STORM_ID="2026wp17"
 DIR_URL="https://rammb-data.cira.colostate.edu/tc_realtime/products/storms/${STORM_ID}/ripastbl/"
 INTERVAL=21600 # Check every 6 hours
 
-TARGET_DATA_FILE="RIPS.txt"
+TARGET_DATA_FILE="RIPA.txt"
 TARGET_NAME_FILE="data/latest_filename.txt"
 
 mkdir -p data
